@@ -1,0 +1,28 @@
+# Cartelle da non sincronizzare
+**/Filtered_pmat
+/Dep_Indep_dataset/
+
+
+
+# File pesanti da non sincronizzare
+*.pmat
+*.bam
+*.bai
+*.bed
+*.wig
+*.bw
+*.bedgraph
+*.png
+*.gz
+
+*.log
+*.out
+*.fa
+*.fa.fai
+*.fasta
+*.chrom.sizes
+*.fasta
+*.fq
+*.zip
+
+*.sorted
