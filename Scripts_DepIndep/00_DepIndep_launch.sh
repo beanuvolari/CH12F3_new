@@ -47,6 +47,7 @@ for cell in "${CELL_LINE[@]}"; do
         echo "2) Venn/Euler/Upset Plotting Pipeline (02_SharedHotspots_plots.sh)"
         echo "3) AID Dependent/Independent Hotspots Splitting (03_AID_DepIndephotspots_split.sh)"
         echo "4) Ranking AID Dependent/Independent Hotspots (04_0Ranking_AID_DepIndep_hotspots.sh)"
+        echo "5) On/Off Dependent/Independent Hotspots Finding (05_OnOff_DepIndep_finding.R)"
        
         read -p "Enter the number (0/1/2/3/4): " STEP
     else
@@ -148,6 +149,7 @@ for cell in "${CELL_LINE[@]}"; do
         4|"Ranking_AID_DepIndep")
             echo "[INFO] Running AID Dependent/Independent Hotspots Splitting..."
 
+            # nohup ./00_DepIndep_launch.sh 4 3 5 0 UM_TKO_CIT_Duv > nohup_04Ranking_AID_DepIndep350.out 2>&1 &
             # nohup ./00_DepIndep_launch.sh 4 3 5 0 UM_TKO_CIT_Duv --Dep > nohup_04Ranking_AID_Dep350.out 2>&1 &
             # nohup ./00_DepIndep_launch.sh 4 3 5 0 UM_TKO_CIT_Duv --Indep > nohup_04Ranking_AID_Indep350.out 2>&1 &
             
@@ -159,7 +161,7 @@ for cell in "${CELL_LINE[@]}"; do
                 read -p "Enter enlargement (e.g.0, 1, 2 or 3): " ENLARGEMENT
                 read -p "Enter the target sample name (e.g. AID_KO_CIT): " SAMPLE_NAME
                 read -p "Enter the type (e.g. --Dep or --Indep): " TYPE
-                read -p "Enter the mode [--mut|--dens] (if you enter nothing both will be done): " MODE
+                read -p "Enter the mode [--mut|--dens] (if you enter nothing, both will be done): " MODE
                 # Combine them into an array
                 ARGS=("$THRESHOLDS" "$MIN_COUNT" "$ENLARGEMENT" "$SAMPLE_NAME" "$TYPE" "$MODE")
             else
@@ -176,9 +178,42 @@ for cell in "${CELL_LINE[@]}"; do
                 bash "${CONTAINER_SCRIPTS_DIR}/04_0Ranking_AID_DepIndep_hotspots.sh" "$cell" "${ARGS[@]}"
         ;;
 
+        5|"OnOff_DepIndep_finding")
+            echo "[INFO] Running On/Off Dependent/Independent Hotspots Findinging..."
+            
+            # nohup ./00_DepIndep_launch.sh 5 3 5 0 UM_TKO_CIT_Duv > nohup_05OnOff_Finding_DepIndep350.out 2>&1 &
+            # nohup ./00_DepIndep_launch.sh 5 3 5 0 UM_TKO_CIT_Duv --Dep > nohup_05OnOff_Finding_Dep350.out 2>&1 &
+            # nohup ./00_DepIndep_launch.sh 5 3 5 0 UM_TKO_CIT_Duv --Indep > nohup_05OnOff_Finding_Indep350.out 2>&1 &
+            
+            # Parameters:
+            if [ $# -lt 4 ]; then
+                echo "[INFO] You must specify threshold, min_count, enlargement, the sample, the type and the mode (not mandatory)."
+                read -p "Enter thresholds (e.g. 3): " THRESHOLDS
+                read -p "Enter min_count (e.g. 5): " MIN_COUNT
+                read -p "Enter enlargement (e.g.0, 1, 2 or 3): " ENLARGEMENT
+                read -p "Enter the target sample name (e.g. AID_KO_CIT): " SAMPLE_NAME
+                read -p "Enter the type [--ALL|--Dep|--Indep]: " TYPE
+                read -p "Enter the mode [--ALL|--mut|--dens] (if you enter nothing, both will be done): " MODE
+                # Combine them into an array
+                ARGS=("$THRESHOLDS" "$MIN_COUNT" "$ENLARGEMENT" "$SAMPLE_NAME" "$TYPE" "$MODE")
+            else
+                ARGS=("$@")
+            fi
+
+            # Docker execution
+            docker run --rm -i \
+                --user $(id -u):$(id -g) \
+                -v "${PMAT_DIR}":"${CONTAINER_PMAT_DIR}" \
+                -v "${SCRIPTS_DIR}":"${CONTAINER_SCRIPTS_DIR}" \
+                -v "${REFERENCE_DIR}":"${CONTAINER_REFERENCE_DIR}" \
+                -v "${DEPINDEP_DIR}":"${CONTAINER_DEPINDEP_DIR}" \
+                "${IMAGE_NAME}" \
+                Rscript "${CONTAINER_SCRIPTS_DIR}/05_OnOff_DepIndep_finding.R" "$cell" "${ARGS[@]}"
+        ;;
+
         *)
             echo "Invalid option: $STEP"
-            echo "Usage: $0 [0|1|2|3|4] [args...]"
+            echo "Usage: $0 [0|1|2|3|4|5] [args...]"
         ;;
     esac
 done

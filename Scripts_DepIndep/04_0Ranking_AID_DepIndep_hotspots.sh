@@ -12,7 +12,7 @@ source /scratch/scripts/General_Functions.sh
 check_args() {
     if [ "$#" -lt 6 ]; then
         echo "Error: Missing arguments."
-        echo "Usage: $0 <cell_line> <threshold_num> <min_count> <enlargement> <sample>  [ALL|--Dep|--Indep] [ALL|--mut|--dens]"
+        echo "Usage: $0 <cell_line> <threshold_num> <min_count> <enlargement> <sample>  [--ALL|--Dep|--Indep] [--ALL|--mut|--dens]"
         exit 1
     fi
 }
