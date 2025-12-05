@@ -148,8 +148,8 @@ for cell in "${CELL_LINE[@]}"; do
         4|"Ranking_AID_DepIndep")
             echo "[INFO] Running AID Dependent/Independent Hotspots Splitting..."
 
-            # nohup ./00_DepIndep_launch.sh 4 3 5 0 UM_TKO_CIT_Duv Dep > nohup_04Ranking_AID_Dep350.out 2>&1 &
-            # nohup ./00_DepIndep_launch.sh 4 3 5 0 UM_TKO_CIT_Duv Indep > nohup_04Ranking_AID_Indep350.out 2>&1 &
+            # nohup ./00_DepIndep_launch.sh 4 3 5 0 UM_TKO_CIT_Duv --Dep > nohup_04Ranking_AID_Dep350.out 2>&1 &
+            # nohup ./00_DepIndep_launch.sh 4 3 5 0 UM_TKO_CIT_Duv --Indep > nohup_04Ranking_AID_Indep350.out 2>&1 &
             
             # Parameters:
             if [ $# -lt 3 ]; then
@@ -158,8 +158,8 @@ for cell in "${CELL_LINE[@]}"; do
                 read -p "Enter min_count (e.g. 5): " MIN_COUNT
                 read -p "Enter enlargement (e.g.0, 1, 2 or 3): " ENLARGEMENT
                 read -p "Enter the target sample name (e.g. AID_KO_CIT): " SAMPLE_NAME
-                read -p "Enter the type (e.g. Dep or Indep): " TYPE
-                read -p "Enter the mode [ALL|--mut|--dens]: " MODE
+                read -p "Enter the type (e.g. --Dep or --Indep): " TYPE
+                read -p "Enter the mode [--mut|--dens] (if you enter nothing both will be done): " MODE
                 # Combine them into an array
                 ARGS=("$THRESHOLDS" "$MIN_COUNT" "$ENLARGEMENT" "$SAMPLE_NAME" "$TYPE" "$MODE")
             else
@@ -173,7 +173,7 @@ for cell in "${CELL_LINE[@]}"; do
                 -v "${SCRIPTS_DIR}":"${CONTAINER_SCRIPTS_DIR}" \
                 -v "${DEPINDEP_DIR}":"${CONTAINER_DEPINDEP_DIR}" \
                 "${IMAGE_NAME}" \
-                bash "${CONTAINER_SCRIPTS_DIR}/03_AID_DepIndephotspots_split.sh" "$cell" "${ARGS[@]}"
+                bash "${CONTAINER_SCRIPTS_DIR}/04_0Ranking_AID_DepIndep_hotspots.sh" "$cell" "${ARGS[@]}"
         ;;
 
         *)

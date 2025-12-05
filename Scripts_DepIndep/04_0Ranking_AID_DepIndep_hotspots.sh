@@ -1,7 +1,7 @@
 #!/bin/bash
 # Example usage:
-# nohup ./04_0Ranking_AID_DepIndep_hotspots.sh CH12F3 3 5 0 Dep UM_TKO_CIT_Duv_CLEAN Dep > nohup_ranking_Dep_UM_TKO_CIT_Duv.out 2>&1 &
-# nohup ./04_0Ranking_AID_DepIndep_hotspots.sh CH12F3 3 5 0 Indep UM_TKO_CIT_Duv_CLEAN Indep > nohup_ranking_Indep_UM_TKO_CIT_Duv.out 2>&1 &
+# nohup ./04_0Ranking_AID_DepIndep_hotspots.sh CH12F3 3 5 0 UM_TKO_CIT_Duv_CLEAN --Dep > nohup_ranking_Dep_UM_TKO_CIT_Duv.out 2>&1 &
+# nohup ./04_0Ranking_AID_DepIndep_hotspots.sh CH12F3 3 5 0 UM_TKO_CIT_Duv_CLEAN --Indep > nohup_ranking_Indep_UM_TKO_CIT_Duv.out 2>&1 &
 
 ############################
 #        FUNCTIONS         #
@@ -31,7 +31,7 @@ build_paths() {
     base_dir="/scratch/DepIndep_dataset/Threshold_${threshold_num}/Enlargement_${enlargement}"
 
     # Hotspots dataset (da step precedente, ora con cell_line variabile)
-    hotspots_file="${base_dir}/${enlargement}_${cell_line}_AID_${type}endent_hotspots_${threshold_num}${min_count}.bed"
+    hotspots_file="${base_dir}/${type}endent_hotspots/${enlargement}_${cell_line}_AID_${type}endent_hotspots_${threshold_num}_${min_count}.bed"
     [ -f "$hotspots_file" ] || { echo "Hotspots file not found: $hotspots_file"; exit 1; }
     echo "Hotspots file: $hotspots_file"
     
@@ -42,7 +42,7 @@ build_paths() {
     echo "Mutations file: $mutations_file"
 
     # Output path
-    output_path="${base_dir}/${sample}/Ranking_${type}_hotspots"
+    output_path="${base_dir}/${type}endent_hotspots/${sample}/Ranking_${type}_hotspots"
     check_directory_exists "$output_path"
 
     # Output files (created only if enabled)
@@ -71,7 +71,7 @@ run_ranking() {
     echo "Type:       $type"
     echo "Params:     enlargement=$enlargement, threshold=$threshold_num, min_count=$min_count"
 
-    Rscript ./04_1Ranking_AID_DepIndep_hotspots.R \
+    Rscript /scratch/scripts/04_1Ranking_AID_DepIndep_hotspots.R \
         "$sample" "$hotspots_file" "$mutations_file" \
         "$output_density" "$output_mutation"
 
