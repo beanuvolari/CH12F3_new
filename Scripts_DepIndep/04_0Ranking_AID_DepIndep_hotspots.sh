@@ -96,34 +96,56 @@ RUN_MUT=true
 ############################
 parse_flags() {
 
+    RUN_DEP=true
+    RUN_INDEP=true
+    RUN_MUT=true
+    RUN_DENS=true
+
+    TYPE_SET=false
+    MODE_SET=false
+    ALL_SEEN=false
+
     for arg in "$@"; do
         case "$arg" in
+            --ALL)
+                ALL_SEEN=true
+                ;;
             --Dep)
                 RUN_DEP=true
                 RUN_INDEP=false
+                TYPE_SET=true
                 ;;
             --Indep)
                 RUN_DEP=false
                 RUN_INDEP=true
+                TYPE_SET=true
                 ;;
             --mut)
                 RUN_MUT=true
                 RUN_DENS=false
+                MODE_SET=true
                 ;;
             --dens)
                 RUN_MUT=false
                 RUN_DENS=true
+                MODE_SET=true
                 ;;
         esac
     done
 
-    echo "[INFO] Flags:"
-    echo "       RUN_DEP = $RUN_DEP"
-    echo "       RUN_INDEP = $RUN_INDEP"
-    echo "       RUN_DENS = $RUN_DENS"
-    echo "       RUN_MUT = $RUN_MUT"
-}
+    # Apply ALL only where no user choice
+    if [[ "$ALL_SEEN" == true && "$TYPE_SET" == false ]]; then
+        RUN_DEP=true
+        RUN_INDEP=true
+    fi
 
+    if [[ "$ALL_SEEN" == true && "$MODE_SET" == false ]]; then
+        RUN_MUT=true
+        RUN_DENS=true
+    fi
+
+    echo "[INFO] RUN_DEP=$RUN_DEP  RUN_INDEP=$RUN_INDEP  RUN_MUT=$RUN_MUT  RUN_DENS=$RUN_DENS"
+}
 
 
 ####################

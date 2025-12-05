@@ -154,14 +154,15 @@ for cell in "${CELL_LINE[@]}"; do
             # nohup ./00_DepIndep_launch.sh 4 3 5 0 UM_TKO_CIT_Duv --Indep > nohup_04Ranking_AID_Indep350.out 2>&1 &
             
             # Parameters:
-            if [ $# -lt 3 ]; then
+            if [ $# -lt 4 ]; then
                 echo "[INFO] You must specify threshold, min_count, enlargement, the sample, the type and the mode (not mandatory)."
+                echo "[INFO] Enter the type [--ALL|--Dep|--Indep](if you enter nothing, both will be done)"
+                echo "[INFO] Enter the mode [--ALL|--mut|--dens] (if you enter nothing, both will be done)"
                 read -p "Enter thresholds (e.g. 3): " THRESHOLDS
                 read -p "Enter min_count (e.g. 5): " MIN_COUNT
                 read -p "Enter enlargement (e.g.0, 1, 2 or 3): " ENLARGEMENT
                 read -p "Enter the target sample name (e.g. AID_KO_CIT): " SAMPLE_NAME
-                read -p "Enter the type (e.g. --Dep or --Indep): " TYPE
-                read -p "Enter the mode [--mut|--dens] (if you enter nothing, both will be done): " MODE
+                
                 # Combine them into an array
                 ARGS=("$THRESHOLDS" "$MIN_COUNT" "$ENLARGEMENT" "$SAMPLE_NAME" "$TYPE" "$MODE")
             else
@@ -188,12 +189,13 @@ for cell in "${CELL_LINE[@]}"; do
             # Parameters:
             if [ $# -lt 4 ]; then
                 echo "[INFO] You must specify threshold, min_count, enlargement, the sample, the type and the mode (not mandatory)."
+                echo "[INFO] Enter the type [--ALL|--Dep|--Indep](if you enter nothing, both will be done)"
+                echo "[INFO] Enter the mode [--ALL|--mut|--dens] (if you enter nothing, both will be done)"
                 read -p "Enter thresholds (e.g. 3): " THRESHOLDS
                 read -p "Enter min_count (e.g. 5): " MIN_COUNT
                 read -p "Enter enlargement (e.g.0, 1, 2 or 3): " ENLARGEMENT
                 read -p "Enter the target sample name (e.g. AID_KO_CIT): " SAMPLE_NAME
-                read -p "Enter the type [--ALL|--Dep|--Indep]: " TYPE
-                read -p "Enter the mode [--ALL|--mut|--dens] (if you enter nothing, both will be done): " MODE
+
                 # Combine them into an array
                 ARGS=("$THRESHOLDS" "$MIN_COUNT" "$ENLARGEMENT" "$SAMPLE_NAME" "$TYPE" "$MODE")
             else

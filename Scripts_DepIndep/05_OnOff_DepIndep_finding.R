@@ -10,47 +10,68 @@ library(GenomicRanges)
 library(readr)
 
 parse_flags <- function(flags) {
-  # Default: run everything
+
   RUN_DEP <- TRUE
   RUN_INDEP <- TRUE
-  RUN_DENS <- TRUE
   RUN_MUT <- TRUE
-  
-  # If flags are provided
-  if (length(flags) > 0 && !all(is.na(flags))) {
-    # Remove empty strings
+  RUN_DENS <- TRUE
+
+  TYPE_SET <- FALSE
+  MODE_SET <- FALSE
+  ALL_SEEN <- FALSE
+
+  if (length(flags) > 0) {
     flags <- flags[flags != ""]
-    
-    # Reset everything first
-    RUN_DEP <- FALSE
-    RUN_INDEP <- FALSE
-    RUN_DENS <- FALSE
-    RUN_MUT <- FALSE
-    
-    # TYPE flag
-    if ("--Dep" %in% flags) RUN_DEP <- TRUE
-    if ("--Indep" %in% flags) RUN_INDEP <- TRUE
-    if ("--ALL" %in% flags || !any(flags %in% c("--Dep","--Indep"))) {
+
+    for (f in flags) {
+      if (f == "--ALL") {
+        ALL_SEEN <- TRUE
+      }
+      if (f == "--Dep") {
+        RUN_DEP <- TRUE
+        RUN_INDEP <- FALSE
+        TYPE_SET <- TRUE
+      }
+      if (f == "--Indep") {
+        RUN_DEP <- FALSE
+        RUN_INDEP <- TRUE
+        TYPE_SET <- TRUE
+      }
+      if (f == "--mut") {
+        RUN_MUT <- TRUE
+        RUN_DENS <- FALSE
+        MODE_SET <- TRUE
+      }
+      if (f == "--dens") {
+        RUN_MUT <- FALSE
+        RUN_DENS <- TRUE
+        MODE_SET <- TRUE
+      }
+    }
+
+    # Apply ALL only to non-set categories
+    if (ALL_SEEN && !TYPE_SET) {
       RUN_DEP <- TRUE
       RUN_INDEP <- TRUE
     }
-    
-    # MODE flag
-    if ("--mut" %in% flags) RUN_MUT <- TRUE
-    if ("--dens" %in% flags) RUN_DENS <- TRUE
-    if ("--ALL" %in% flags || !any(flags %in% c("--mut","--dens"))) {
+    if (ALL_SEEN && !MODE_SET) {
       RUN_MUT <- TRUE
       RUN_DENS <- TRUE
     }
   }
-  
+
   cat("[INFO] Flags parsed:\n")
   cat("       RUN_DEP =", RUN_DEP, "\n")
   cat("       RUN_INDEP =", RUN_INDEP, "\n")
   cat("       RUN_MUT =", RUN_MUT, "\n")
   cat("       RUN_DENS =", RUN_DENS, "\n")
-  
-  return(list(RUN_DEP=RUN_DEP, RUN_INDEP=RUN_INDEP, RUN_MUT=RUN_MUT, RUN_DENS=RUN_DENS))
+
+  return(list(
+    RUN_DEP=RUN_DEP,
+    RUN_INDEP=RUN_INDEP,
+    RUN_MUT=RUN_MUT,
+    RUN_DENS=RUN_DENS
+  ))
 }
 
 
