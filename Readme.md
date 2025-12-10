@@ -1,4 +1,6 @@
-
+docker run -id \
+    --name Ch12F3_container
+    -v /30tb/home/nuvobea/pmat_and_mpmat/CH12F3:/scratch
 1  nohup ./00_Pipeline_launch.sh 1 3-5 > nohup_01_3-5_pmat.out 2>&1 &
 2  nohup ./00_Pipeline_launch.sh 1 --part2 6-10 > nohup_01_6-10_part2.out 2>&1 &
 3  nohup ./00_Pipeline_launch.sh 2 3 > nohup_02_Sum_mut_loci_3.out 2>&1 &

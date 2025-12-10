@@ -8,6 +8,12 @@ BASE_DIR="/30tb/home/nuvobea/pmat_and_mpmat/CH12F3"
 
 # Cell line to process
 CELL_LINE=("CH12F3")
+THRESHOLD=3
+MIN_COUNT=5
+ENLARGEMENT=0
+
+# Parameters array
+PARAMS=("$THRESHOLD" "$MIN_COUNT" "$ENLARGEMENT")
 
 # Samples'order
 ORDERED_SAMPLES=("AID_KO_CIT" "UNG_DKO_NS" "UNG_DKO_CIT" "UNG_DKO_CIT_Duv" 
@@ -46,8 +52,9 @@ for cell in "${CELL_LINE[@]}"; do
         echo "1) Shared Hotspots Analysis (01_0SharedHotspots.sh)"
         echo "2) Venn/Euler/Upset Plotting Pipeline (02_SharedHotspots_plots.sh)"
         echo "3) AID Dependent/Independent Hotspots Splitting (03_AID_DepIndephotspots_split.sh)"
-        echo "4) Ranking AID Dependent/Independent Hotspots (04_0Ranking_AID_DepIndep_hotspots.sh)"
-        echo "5) On/Off Dependent/Independent Hotspots Finding (05_OnOff_DepIndep_finding.R)"
+        echo "4) Filtering Fragile Sites (04_Remove_fragile_regions.R)"
+        echo "5) Ranking AID Dependent/Independent Hotspots (04_0Ranking_AID_DepIndep_hotspots.sh)"
+        echo "6) On/Off Dependent/Independent Hotspots Finding (05_OnOff_DepIndep_finding.R)"
        
         read -p "Enter the number (0/1/2/3/4): " STEP
     else
@@ -57,24 +64,17 @@ for cell in "${CELL_LINE[@]}"; do
     # Shift the step argument to process the remaining as parameters
     shift
 
+    # STEP_ARGS contains the remaining arguments after the step
+    STEP_ARGS=("$@")
+
     # Based on selected step
     case "$STEP" in
 
         1|"Shared_Hotspots")
             echo "[INFO] Running Shared Hotspots Analysis..."
-
-            # nohup ./00_DepIndep_launch.sh 1 3 5 0 > nohup_01SharedHotspots35_merge0.out 2>&1 &
-
-            # Parameters:
-            if [ $# -lt 3 ]; then
-                echo "[INFO] You must specify threshold, min_count and enlargement."
-                read -p "Enter thresholds (e.g. 3): " THRESHOLDS
-                read -p "Enter min_count (e.g. 5): " MIN_COUNT
-                read -p "Enter enlargement (e.g.0, 1, 2 or 3): " ENLARGEMENT
-                ARGS=("$THRESHOLDS" "$MIN_COUNT" "$ENLARGEMENT")
-            else
-                ARGS=("$@")
-            fi
+            # USAGE: $0 1
+            # Example:
+            # nohup ./00_DepIndep_launch.sh 1 > nohup_01SharedHotspots35_merge0.out 2>&1 &
 
             # Docker execution
             docker run --rm -i \
@@ -83,29 +83,16 @@ for cell in "${CELL_LINE[@]}"; do
                 -v "${SCRIPTS_DIR}":"${CONTAINER_SCRIPTS_DIR}" \
                 -v "${DEPINDEP_DIR}":"${CONTAINER_DEPINDEP_DIR}" \
                 "${IMAGE_NAME}" \
-                bash "${CONTAINER_SCRIPTS_DIR}/01_0SharedHotspots.sh" "$cell" "${ARGS[@]}" "${ORDERED_SAMPLES[@]}"
+                bash "${CONTAINER_SCRIPTS_DIR}/01_0SharedHotspots.sh" "$cell" "${PARAMS[@]}" "${ORDERED_SAMPLES[@]}"
         ;;
 
 
         2|"Plots")
             echo "[INFO] Running Venn/Euler/Upset Plotting Pipeline..."
+            # USAGE: $0 2 [FLAGS...] (e.g., -e -u)
+            # Example:
+            # nohup ./00_DepIndep_launch.sh 2 > nohup_02SharedHotspots_plots350.out 2>&1 &
 
-            # nohup ./00_DepIndep_launch.sh 2 3 5 0 > nohup_02SharedHotspots_plots350.out 2>&1 &
-            
-            # Logic for arguments specific to the plotting wrapper
-            # It expects: <threshold> [OPTIONS like -e, -v, ALL]
-            if [ $# -lt 3 ]; then
-                echo "[INFO] You must specify threshold, min_count and enlargement."
-                read -p "Enter thresholds (e.g. 3): " THRESHOLDS
-                read -p "Enter min_count (e.g. 5): " MIN_COUNT
-                read -p "Enter enlargement (e.g.0, 1, 2 or 3): " ENLARGEMENT
-                read -p "Enter flags (optional, e.g. 'ALL' or '-e -u'. Press Enter for default ALL): " FLAGS
-                # Combine them into an array
-                ARGS=("$THRESHOLDS" "$MIN_COUNT" "$ENLARGEMENT" "$FLAGS")
-            else
-                # If passed via command line (e.g. ./script.sh 2 10 -e)
-                ARGS=("$@")
-            fi
 
             # Docker execution 
             docker run --rm -i \
@@ -114,26 +101,23 @@ for cell in "${CELL_LINE[@]}"; do
                 -v "${SCRIPTS_DIR}":"${CONTAINER_SCRIPTS_DIR}" \
                 -v "${DEPINDEP_DIR}":"${CONTAINER_DEPINDEP_DIR}" \
                 "${IMAGE_NAME}" \
-                bash "${CONTAINER_SCRIPTS_DIR}/02_0SharedHotspots_plots.sh" "$cell" "${ARGS[@]}"
+                bash "${CONTAINER_SCRIPTS_DIR}/02_0SharedHotspots_plots.sh" "$cell" "${PARAMS[@]}" "${STEP_ARGS[@]}"
         ;;
 
 
         3|"AID_DepIndep_Split")
             echo "[INFO] Running AID Dependent/Independent Hotspots Splitting..."
-
-            # nohup ./00_DepIndep_launch.sh 3 3 5 0 AID_KO_CIT > nohup_03AID_DepIndephotspots_split350.out 2>&1 &
+            # USAGE: $0 3 <REFERENCE_SAMPLE_NAME>
+            # Example:
+            # nohup ./00_DepIndep_launch.sh 3 AID_KO_CIT > nohup_03AID_DepIndephotspots_split350.out 2>&1 &
             
-            # Parameters:
-            if [ $# -lt 3 ]; then
-                echo "[INFO] You must specify threshold, min_count, enlargement and the sample needed for the analysis."
-                read -p "Enter thresholds (e.g. 3): " THRESHOLDS
-                read -p "Enter min_count (e.g. 5): " MIN_COUNT
-                read -p "Enter enlargement (e.g.0, 1, 2 or 3): " ENLARGEMENT
-                read -p "Enter the target sample name (e.g. AID_KO_CIT): " SAMPLE_NAME
-                # Combine them into an array
-                ARGS=("$THRESHOLDS" "$MIN_COUNT" "$ENLARGEMENT" "$SAMPLE_NAME")
-            else
-                ARGS=("$@")
+            # Requirements: <REFERENCE_SAMPLE_NAME>
+            REF_SAMPLE_NAME="${STEP_ARGS[0]}"
+            if [ -z "$REF_SAMPLE_NAME" ]; then
+                echo "[ERROR] Step 3 requires the reference sample name as the first argument."
+                echo "[INFO] Usage: $0 3 <REFERENCE_SAMPLE_NAME>"
+                echo "[INFO] Example: $0 3 AID_KO_CIT"
+                exit 1
             fi
 
             # Docker execution
@@ -143,31 +127,31 @@ for cell in "${CELL_LINE[@]}"; do
                 -v "${SCRIPTS_DIR}":"${CONTAINER_SCRIPTS_DIR}" \
                 -v "${DEPINDEP_DIR}":"${CONTAINER_DEPINDEP_DIR}" \
                 "${IMAGE_NAME}" \
-                bash "${CONTAINER_SCRIPTS_DIR}/03_AID_DepIndephotspots_split.sh" "$cell" "${ARGS[@]}"
+                bash "${CONTAINER_SCRIPTS_DIR}/03_AID_DepIndephotspots_split.sh" "$cell" "${PARAMS[@]}" "$REF_SAMPLE_NAME"
         ;;
+
 
         4|"Ranking_AID_DepIndep")
             echo "[INFO] Running AID Dependent/Independent Hotspots Splitting..."
-
-            # nohup ./00_DepIndep_launch.sh 4 3 5 0 UM_TKO_CIT_Duv > nohup_04Ranking_AID_DepIndep350.out 2>&1 &
-            # nohup ./00_DepIndep_launch.sh 4 3 5 0 UM_TKO_CIT_Duv --Dep > nohup_04Ranking_AID_Dep350.out 2>&1 &
-            # nohup ./00_DepIndep_launch.sh 4 3 5 0 UM_TKO_CIT_Duv --Indep > nohup_04Ranking_AID_Indep350.out 2>&1 &
+            # USAGE: $0 5 <ANALYSIS_SAMPLE_NAME> <TYPE> <MODE>
+            # <ANALYSIS_SAMPLE_NAME> mandatory
+            # <TYPE> optional: --ALL (default), --Dep, --Indep (if nothing entered, both will be done)
+            # <MODE> optional: --ALL (default), --mut, --dens (if nothing entered, both will be done)
+            # Example:
+            # nohup ./00_DepIndep_launch.sh 4 UM_TKO_CIT_Duv > nohup_04Ranking_AID_DepIndep350.out 2>&1 &
+            # nohup ./00_DepIndep_launch.sh 4 UM_TKO_CIT_Duv --Dep > nohup_04Ranking_AID_Dep350.out 2>&1 &
+            # nohup ./00_DepIndep_launch.sh 4 UM_TKO_CIT_Duv --Indep > nohup_04Ranking_AID_Indep350.out 2>&1 &
             
-            # Parameters:
-            if [ $# -lt 4 ]; then
-                echo "[INFO] You must specify threshold, min_count, enlargement, the sample, the type and the mode (not mandatory)."
-                echo "[INFO] Enter the type [--ALL|--Dep|--Indep](if you enter nothing, both will be done)"
-                echo "[INFO] Enter the mode [--ALL|--mut|--dens] (if you enter nothing, both will be done)"
-                read -p "Enter thresholds (e.g. 3): " THRESHOLDS
-                read -p "Enter min_count (e.g. 5): " MIN_COUNT
-                read -p "Enter enlargement (e.g.0, 1, 2 or 3): " ENLARGEMENT
-                read -p "Enter the target sample name (e.g. AID_KO_CIT): " SAMPLE_NAME
-                
-                # Combine them into an array
-                ARGS=("$THRESHOLDS" "$MIN_COUNT" "$ENLARGEMENT" "$SAMPLE_NAME" "$TYPE" "$MODE")
-            else
-                ARGS=("$@")
+            ANALYSIS_SAMPLE_NAME="${STEP_ARGS[0]}"
+            if [ -z "$ANALYSIS_SAMPLE_NAME" ]; then
+                echo "[ERROR] Step 4 requires the reference sample name as the first argument."
+                echo "[INFO] Usage: $0 4 <ANALYSIS_SAMPLE_NAME>"
+                echo "[INFO] Example: $0 4 UM_TKO_CIT_Duv"
+                exit 1
             fi
+
+            # Flags are the rest of the arguments (can be empty)
+            FLAGS=("${STEP_ARGS[@]:1}")
 
             # Docker execution
             docker run --rm -i \
@@ -176,31 +160,63 @@ for cell in "${CELL_LINE[@]}"; do
                 -v "${SCRIPTS_DIR}":"${CONTAINER_SCRIPTS_DIR}" \
                 -v "${DEPINDEP_DIR}":"${CONTAINER_DEPINDEP_DIR}" \
                 "${IMAGE_NAME}" \
-                bash "${CONTAINER_SCRIPTS_DIR}/04_0Ranking_AID_DepIndep_hotspots.sh" "$cell" "${ARGS[@]}"
+                bash "${CONTAINER_SCRIPTS_DIR}/04_0Ranking_AID_DepIndep_hotspots.sh" "$cell" "${PARAMS[@]}" "$ANALYSIS_SAMPLE_NAME" "${FLAGS[@]}"
         ;;
 
-        5|"OnOff_DepIndep_finding")
-            echo "[INFO] Running On/Off Dependent/Independent Hotspots Findinging..."
+        5|"Filtering_FragileSites")
+            echo "[INFO] Running Filtering Fragile Sites..."
+            # USAGE: $0 5 <ANALYSIS_SAMPLE_NAME> <TYPE> <MODE>
+            # <ANALYSIS_SAMPLE_NAME> mandatory
+            # <TYPE> optional: --ALL (default), --Dep, --Indep (if nothing entered, both will be done)
+            # <MODE> optional: --ALL (default), --mut, --dens (if nothing entered, both will be done)
+            # Example:
+            # nohup ./00_DepIndep_launch.sh 5 UM_TKO_CIT_Duv > nohup_05Filtering_FragileSites350.out 2>&1 &
+            # nohup ./00_DepIndep_launch.sh 5 UM_TKO_CIT_Duv --Dep > nohup_05Filtering_FragileSites_Dep350.out 2>&1 &
+            # nohup ./00_DepIndep_launch.sh 5 UM_TKO_CIT_Duv --Indep > nohup_05Filtering_FragileSites_Inde350.out 2>&1 &
             
-            # nohup ./00_DepIndep_launch.sh 5 3 5 0 UM_TKO_CIT_Duv > nohup_05OnOff_Finding_DepIndep350.out 2>&1 &
-            # nohup ./00_DepIndep_launch.sh 5 3 5 0 UM_TKO_CIT_Duv --Dep > nohup_05OnOff_Finding_Dep350.out 2>&1 &
-            # nohup ./00_DepIndep_launch.sh 5 3 5 0 UM_TKO_CIT_Duv --Indep > nohup_05OnOff_Finding_Indep350.out 2>&1 &
-            
-            # Parameters:
-            if [ $# -lt 4 ]; then
-                echo "[INFO] You must specify threshold, min_count, enlargement, the sample, the type and the mode (not mandatory)."
-                echo "[INFO] Enter the type [--ALL|--Dep|--Indep](if you enter nothing, both will be done)"
-                echo "[INFO] Enter the mode [--ALL|--mut|--dens] (if you enter nothing, both will be done)"
-                read -p "Enter thresholds (e.g. 3): " THRESHOLDS
-                read -p "Enter min_count (e.g. 5): " MIN_COUNT
-                read -p "Enter enlargement (e.g.0, 1, 2 or 3): " ENLARGEMENT
-                read -p "Enter the target sample name (e.g. AID_KO_CIT): " SAMPLE_NAME
-
-                # Combine them into an array
-                ARGS=("$THRESHOLDS" "$MIN_COUNT" "$ENLARGEMENT" "$SAMPLE_NAME" "$TYPE" "$MODE")
-            else
-                ARGS=("$@")
+            ANALYSIS_SAMPLE_NAME="${STEP_ARGS[0]}"
+            if [ -z "$ANALYSIS_SAMPLE_NAME" ]; then
+                echo "[ERROR] Step 5 requires the reference sample name as the first argument."
+                echo "[INFO] Usage: $0 5 <ANALYSIS_SAMPLE_NAME>"
+                echo "[INFO] Example: $0 5 UM_TKO_CIT_Duv"
+                exit 1
             fi
+
+            # Flags are the rest of the arguments (can be empty)
+            FLAGS=("${STEP_ARGS[@]:1}")
+
+            # Docker execution
+            docker run --rm -i \
+                --user $(id -u):$(id -g) \
+                -v "${PMAT_DIR}":"${CONTAINER_PMAT_DIR}" \
+                -v "${SCRIPTS_DIR}":"${CONTAINER_SCRIPTS_DIR}" \
+                -v "${DEPINDEP_DIR}":"${CONTAINER_DEPINDEP_DIR}" \
+                -v "${REFERENCE_DIR}":"${CONTAINER_REFERENCE_DIR}" \
+                "${IMAGE_NAME}" \
+                Rscript "${CONTAINER_SCRIPTS_DIR}/05_Remove_fragile_sites.R" "$cell" "${PARAMS[@]}" "$ANALYSIS_SAMPLE_NAME" "${FLAGS[@]}"
+        ;;
+
+        6|"OnOff_DepIndep_finding")
+            echo "[INFO] Running AID Dependent/Independent Hotspots Splitting..."
+            # USAGE: $0 6 <ANALYSIS_SAMPLE_NAME> <TYPE> <MODE>
+            # <ANALYSIS_SAMPLE_NAME> mandatory
+            # <TYPE> optional: --ALL (default), --Dep, --Indep (if nothing entered, both will be done)
+            # <MODE> optional: --ALL (default), --mut, --dens (if nothing entered, both will be done)
+            # Example:
+            # nohup ./00_DepIndep_launch.sh 6 UM_TKO_CIT_Duv > nohup_06OnOff_Finding_DepIndep350.out 2>&1 &
+            # nohup ./00_DepIndep_launch.sh 6 UM_TKO_CIT_Duv --Dep > nohup_06OnOff_Finding_Dep350.out 2>&1 &
+            # nohup ./00_DepIndep_launch.sh 6 UM_TKO_CIT_Duv --Indep > nohup_06OnOff_Finding_Indep350.out 2>&1 &
+            
+            ANALYSIS_SAMPLE_NAME="${STEP_ARGS[0]}"
+            if [ -z "$ANALYSIS_SAMPLE_NAME" ]; then
+                echo "[ERROR] Step 6 requires the reference sample name as the first argument."
+                echo "[INFO] Usage: $0 6 <ANALYSIS_SAMPLE_NAME>"
+                echo "[INFO] Example: $0 6 UM_TKO_CIT_Duv"
+                exit 1
+            fi
+
+            # Flags are the rest of the arguments (can be empty)
+            FLAGS=("${STEP_ARGS[@]:1}")
 
             # Docker execution
             docker run --rm -i \
@@ -210,12 +226,12 @@ for cell in "${CELL_LINE[@]}"; do
                 -v "${REFERENCE_DIR}":"${CONTAINER_REFERENCE_DIR}" \
                 -v "${DEPINDEP_DIR}":"${CONTAINER_DEPINDEP_DIR}" \
                 "${IMAGE_NAME}" \
-                Rscript "${CONTAINER_SCRIPTS_DIR}/05_OnOff_DepIndep_finding.R" "$cell" "${ARGS[@]}"
+                Rscript "${CONTAINER_SCRIPTS_DIR}/06_OnOff_DepIndep_finding.R" "$cell" "${PARAMS[@]}"  "$ANALYSIS_SAMPLE_NAME" "${FLAGS[@]}"
         ;;
 
         *)
             echo "Invalid option: $STEP"
-            echo "Usage: $0 [0|1|2|3|4|5] [args...]"
+            echo "Usage: $0 [0|1|2|3|4|5|6] [args...]"
         ;;
     esac
 done
