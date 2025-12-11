@@ -55,8 +55,9 @@ for cell in "${CELL_LINE[@]}"; do
         echo "4) Filtering Fragile Sites (04_Remove_fragile_regions.R)"
         echo "5) Ranking AID Dependent/Independent Hotspots (04_0Ranking_AID_DepIndep_hotspots.sh)"
         echo "6) On/Off Dependent/Independent Hotspots Finding (05_OnOff_DepIndep_finding.R)"
+        echo "7) Unified Top 200 Hotspots Selection (07_top200hotspots_selection.sh)"
        
-        read -p "Enter the number (0/1/2/3/4): " STEP
+        read -p "Enter the number (0/1/2/3/4/5/6/7): " STEP
     else
         STEP="$1"
     fi
@@ -229,9 +230,40 @@ for cell in "${CELL_LINE[@]}"; do
                 Rscript "${CONTAINER_SCRIPTS_DIR}/06_OnOff_DepIndep_finding.R" "$cell" "${PARAMS[@]}"  "$ANALYSIS_SAMPLE_NAME" "${FLAGS[@]}"
         ;;
 
+
+        7|"Top200_Selection")
+            echo "[INFO] Running Unified Top 200 Hotspots Selection..."
+            # USAGE: $0 7 <ANALYSIS_SAMPLE_NAME> <TYPE> <MODE>
+            # <ANALYSIS_SAMPLE_NAME> mandatory
+            # <TYPE> optional: --ALL (default), --Dep, --Indep
+            # <MODE> optional: --ALL (default), --mut, --dens
+            # Example:
+            # nohup ./00_DepIndep_launch.sh 7 UM_TKO_CIT_Duv > nohup_07top200_selection350.out 2>&1 &
+ 
+            ANALYSIS_SAMPLE_NAME="${STEP_ARGS[0]}"
+            if [ -z "$ANALYSIS_SAMPLE_NAME" ]; then
+             echo "[ERROR] Step 7 requires the analysis sample name as the first argument."
+             echo "[INFO] Usage: $0 7 <ANALYSIS_SAMPLE_NAME>"
+             echo "[INFO] Example: $0 7 UM_TKO_CIT_Duv_CLEAN"
+             exit 1
+            fi
+
+            # Flags are the rest of the arguments (can be empty)
+            FLAGS=("${STEP_ARGS[@]:1}")
+
+            # Docker execution
+            docker run --rm -i \
+             --user $(id -u):$(id -g) \
+             -v "${PMAT_DIR}":"${CONTAINER_PMAT_DIR}" \
+             -v "${SCRIPTS_DIR}":"${CONTAINER_SCRIPTS_DIR}" \
+             -v "${DEPINDEP_DIR}":"${CONTAINER_DEPINDEP_DIR}" \
+            "${IMAGE_NAME}" \
+            bash "${CONTAINER_SCRIPTS_DIR}/07_top200hotspots_selection.sh" "$cell" "${PARAMS[@]}" "$ANALYSIS_SAMPLE_NAME" "${FLAGS[@]}"
+        ;;
+
         *)
             echo "Invalid option: $STEP"
-            echo "Usage: $0 [0|1|2|3|4|5|6] [args...]"
+            echo "Usage: $0 [0|1|2|3|4|5|6|7] [args...]"
         ;;
     esac
 done
