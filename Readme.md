@@ -1,6 +1,23 @@
 docker run -id \
-    --name Ch12F3_container
-    -v /30tb/home/nuvobea/pmat_and_mpmat/CH12F3:/scratch
+    --name Ch12F3_container \
+    -v /30tb/home/nuvobea/pmat_and_mpmat/CH12F3:/scratch/pmat \
+    detectseqpipe:4
+
+apt-get update
+apt-get install -y tabix
+
+bgzip --version
+tabix --version
+
+tabix --version
+bgzip (htslib) 1.13+ds
+Copyright (C) 2021 Genome Research Ltd.
+tabix (htslib) 1.13+ds
+Copyright (C) 2021 Genome Research Ltd.
+
+docker exec -it Ch12F3_container /bin/bash
+
+
 1  nohup ./00_Pipeline_launch.sh 1 3-5 > nohup_01_3-5_pmat.out 2>&1 &
 2  nohup ./00_Pipeline_launch.sh 1 --part2 6-10 > nohup_01_6-10_part2.out 2>&1 &
 3  nohup ./00_Pipeline_launch.sh 2 3 > nohup_02_Sum_mut_loci_3.out 2>&1 &

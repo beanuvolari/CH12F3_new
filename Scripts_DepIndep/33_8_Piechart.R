@@ -142,8 +142,8 @@ if (length(args) < 7) {
 threshold_num <- as.integer(args[1])
 min_count <- as.integer(args[2])
 enlargement <- as.integer(args[3])
-type <- args[4]
-sample <- args[5]
+sample <- args[4]
+type <- args[5]
 dens_mut <- args[6]
 comparison_method <- args[7]
 

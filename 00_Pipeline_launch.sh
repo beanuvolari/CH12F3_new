@@ -14,6 +14,8 @@ CELL_LINE=("CH12F3")
 ADAPT1="AGATCGGAAGAGCACACGT"
 ADAPT2="AGATCGGAAGAGCGTCGTG"
 
+# Save original arguments
+ORIGINAL_ARGS=("$@")
 
 for cell in "${CELL_LINE[@]}"; do
   echo "Processing cell line: $cell"
@@ -51,7 +53,8 @@ for cell in "${CELL_LINE[@]}"; do
         echo "2) Sum Mut Loci (02_Sum_mut_loci.sh)"
         echo "3) Merging CTGA (03_Merging_CTGA.sh)"
         echo "4) Rider processing (04_Rider_processing.sh)"
-        read -p "Enter the number (0/1/2/3/4): " STEP
+        echo "5) IGV Browser bgzip and tabix files generation (05_Index_forIGVbrowser.sh)"
+        read -p "Enter the number (0/1/2/3/4/5): " STEP
     else
         STEP="$1"
     fi
@@ -216,9 +219,26 @@ for cell in "${CELL_LINE[@]}"; do
                 bash "$CONTAINER_SCRIPTS_DIR/04_Rider_processing.sh" "${ARGS[@]}"
             ;;
 
+        # 5|"IGV"|"IGV_browser_indexing")
+
+        #     # nohup ./00_Pipeline_launch.sh 5 > nohup_05_IndexIGVbrowser.out 2>&1 &
+            
+        #     echo "Launching 05_Index_forIGVbrowser.sh script..."
+
+
+        #     docker run --rm -i \
+        #         --user $(id -u):$(id -g) \
+        #         -v "$PROJECT_DIR":"$CONTAINER_PMAT_DIR" \
+        #         -v "$SCRIPTS_DIR":"$CONTAINER_SCRIPTS_DIR" \
+        #         "$IMAGE_NAME" \
+        #         bash "$CONTAINER_SCRIPTS_DIR/05_Index_forIGVbrowser.sh"
+        
+        # ;;
+
+
         *)
             echo "Invalid option: $STEP"
-            echo "Usage: $0 [0|1|2|3|4] [args...]"
+            echo "Usage: $0 [0|1|2|3|4|5] [args...]"
             ;;
     esac
 done
