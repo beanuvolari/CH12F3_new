@@ -48,14 +48,14 @@ build_paths() {
     # Output files (created only if enabled)
     if [[ "$RUN_DENS" == true ]]; then
         check_directory_exists "$output_path/density"
-        output_density="${output_path}/density/${enlargement}_${sample}_${type}_${cell_line}_Ranked_hotspots_density_${threshold_num}${min_count}.tsv"
+        output_density="${output_path}/density/Full_hotspots/${enlargement}_${sample}_${type}_${cell_line}_Ranked_hotspots_density_${threshold_num}${min_count}.tsv"
     else
         output_density=""
     fi
 
     if [[ "$RUN_MUT" == true ]]; then
         check_directory_exists "$output_path/nmutations"
-        output_mutation="${output_path}/nmutations/${enlargement}_${sample}_${type}_${cell_line}_Ranked_hotspots_nmutations_${threshold_num}${min_count}.tsv"
+        output_mutation="${output_path}/nmutations/Full_hotspots/${enlargement}_${sample}_${type}_${cell_line}_Ranked_hotspots_nmutations_${threshold_num}${min_count}.tsv"
     else
         output_mutation=""
     fi

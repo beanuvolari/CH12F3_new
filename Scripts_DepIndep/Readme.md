@@ -18,11 +18,21 @@ To run this script, update the following variables at the top of the script:
 # Base directory for the project
 BASE_DIR="Path-to-your-folder/Detect-seq_Project/"
 ```
-
-- CELL_LINE: array with the **name of the cell line** to process;
+- ARGUMENTS:
+    - CELL_LINE: **name of the cell line** to process;
+    - THRESHOLD: minimum n° of mutations to consider significant a mutation position
+    - MIN_COUNT: minimum n° of mutations to consider significant a hotspot
+    - ENLARGEMENT: Genomic window expansion.  
+        - 0 = No enlargement
+        - 1 = ±1000 bp  (start-1000bp; end+1000bp)
+        - 2 = ±2000 bp  (start-2000bp; end+2000bp)
+        - 3 = ±4000 bp  (start-4000bp; end+4000bp)
 ```
 # Cell lines to process
-CELL_LINE=("cell_line1" "cell_line2" ...)
+CELL_LINE="cell_line1"
+THRESHOLD="threshold"
+MIN_COUNT="min_count"
+ENLARGEMENT="enlargement"
 ```
 - ORDERED_SAMPLES: array with the sample names to process, in the order in which they should be analyzed.
 ```
@@ -35,8 +45,12 @@ ORDERED_SAMPLES=("sample_1" "sample_2" "sample_3" ...)
 ```
 # Syntax
 ./00_DepIndep_launch.sh <step> [options...]
+
+# Help
+./00_DepIndep_launch.sh --help
+./00_DepIndep_launch.sh -h
 ```
-- If no 'step' is specified, the script will prompt you interactively.  
+- If no 'step' is specified, the script will prompt you an error. Have a look of the help.  
 - The script automatically handles volume mapping between your host directories and the Docker container (/scratch/...)
 
 
@@ -48,16 +62,6 @@ ORDERED_SAMPLES=("sample_1" "sample_2" "sample_3" ...)
 Option: ```1``` or ```Shared_Hotspots```
 
 This step runs ```01_0SharedHotspots.sh```. It wraps ```01_1SharedHotspots.R``` that collects and merges hotspot regions ("RIDER" regions) detected across multiple samples, producing a consolidated dataset. It allows for the optional expansion of hotspot coordinates via the **enlargement** parameter.
-
-Parameters:
-
-- Threshold: Filter threshold (e.g., 3).
-- Min Count: Minimum count of overlaps (e.g., 5).
-- Enlargement: Genomic window expansion.  
-    - 0 = No enlargement
-    - 1 = ±1000 bp  (start-1000bp; end+1000bp)
-    - 2 = ±2000 bp  (start-2000bp; end+2000bp)
-    - 3 = ±4000 bp  (start-4000bp; end+4000bp)
 
 
 ```

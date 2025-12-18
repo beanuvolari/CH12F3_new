@@ -1,26 +1,24 @@
 #!/usr/bin/env Rscript
-
+# nohup Rscript 08_HTGTS-Detectseq_coverage.R CH12F3 3 5 0 UM_TKO_CIT_Duv --Dep --mut > nohup_08HTGTS-Detectseq_coverage.out 2>&1 &
 # =========================================================================
 # 08_HTGTS_Detectseq_Coverage_Unified.R
-# Questo script unifica l'analisi di sovrapposizione tra hotspot Detect-seq
-# e regioni target HTGTS (ON/OFF), eseguendo analisi speculari su tutte le
-# combinazioni di file (Full, Top 200, Filtrato) specificate dai flag.
+# This script unifies the overlap analysis between Detect-seq hotspots 
+# and HTGTS target regions (ON/OFF). It performs analysis on all 
+# combinations (Full, Top 200, Filtered) based on flags.
 # =========================================================================
 
-# Libraries required for genomic intervals and plotting
+# Libraries required for genomic intervals and data handling
 library(GenomicRanges)
 library(readr)
 library(dplyr)
-library(ggplot2)
 
 ########################
 #       Functions      #
 ########################
 
-# Check if file exists
+# [INFO] Function to check if a file exists
 check_file <- function(path, label) {
   if (!file.exists(path)) {
-    # Non usiamo stop() qui, ma restituiamo FALSE e facciamo gestire l'assenza nel MAIN
     cat("[WARNING]", label, "file", path, "doesn't exist! Skipping related analysis.\n")
     return(FALSE)
   } else {
@@ -29,126 +27,88 @@ check_file <- function(path, label) {
   }
 }
 
-# Convert data.frame with chrom/start/end to GRanges
-make_GRanges <- function(df, start_col = "start", end_col = "end") {
+# [INFO] Function to convert a data frame with chrom/start/end to GRanges
+make_GRanges <- function(df) {
   GRanges(seqnames = df$chrom, ranges = IRanges(start = df$start, end = df$end))
 }
 
-# Generate and save a Pie Chart
-save_pie_chart <- function(data_df, title, output_path) {
-  # Calcola le percentuali per il grafico
-  data_df <- data_df %>%
-    mutate(
-      percentage = Count / sum(Count),
-      y.pos = cumsum(percentage) - 0.5 * percentage
-    )
-
-  plot <- ggplot(data_df, aes(x = "", y = percentage, fill = Target)) +
-    geom_bar(stat = "identity", width = 1, color = "white") +
-    coord_polar("y", start = 0) +
-    theme_void() +
-    geom_text(aes(y = y.pos, label = scales::percent(percentage, accuracy = 0.1)), color = "black", size = 3) +
-    labs(title = title, fill = "Category") +
-    theme(plot.title = element_text(hjust = 0.5))
-
-  ggsave(output_path, plot, width = 6, height = 6)
-  cat("[INFO] Pie chart saved to:", output_path, "\n")
-}
-
-# --- Core Unified Analysis Function ---
-# Esegue entrambe le analisi (Detect-seq vs HTGTS e HTGTS vs Detect-seq)
-# Per un dato file di input (Detect-seq hotspots)
-
-analyze_coverage <- function(gr_detect, gr_ONtarget, gr_OFFtarget, output_dir, file_prefix, analysis_type) {
+# [INFO] Core Unified Analysis Function with dynamic output naming
+analyze_coverage <- function(gr_detect, gr_ONtarget, gr_OFFtarget, outputDetect_dir, outputHTGTS_dir,
+                             enlargement, sample, type, cell_line, mode, 
+                             threshold, mincount, is_200, is_filtered) {
   
-  cat(sprintf("[INFO] Starting analysis type: %s\n", analysis_type))
+  # Construct dynamic base prefix: enlargement_sample_type_cellline_mode
+  base_prefix <- paste(enlargement, sample, type, cell_line, mode, sep = "_")
+  
+  # Define tags for naming
+  rank_tag <- if (is_200) "Summary200" else "Summary"
+  filt_tag <- if (is_filtered) "_blackfilt" else ""
+  
+  cat(sprintf("[INFO] Starting analysis for: %s (%s)\n", base_prefix, rank_tag))
   
   # ----------------------------------------------------
-  # A) Analisi FOCUS: Detect-seq vs HTGTS (Detect-seq come Query)
-  # Quanti Detect-seq hotspots cadono nei target ON/OFF?
+  # A) Detect-seq vs HTGTS (How many Detect hotspots hit targets?)
   # ----------------------------------------------------
-  
-  # Sovrapposizioni: findOverlaps(Query, Subject)
-  # Detect-seq è Query, HTGTS targets sono Subject
-  overlaps_ON_D_vs_H <- findOverlaps(gr_detect, gr_ONtarget)
-  overlaps_OFF_D_vs_H <- findOverlaps(gr_detect, gr_OFFtarget)
+  overlaps_ON <- findOverlaps(gr_detect, gr_ONtarget)
+  overlaps_OFF <- findOverlaps(gr_detect, gr_OFFtarget)
   
   total_detect <- length(gr_detect)
-  covered_on_detect <- length(unique(queryHits(overlaps_ON_D_vs_H)))
-  covered_off_detect <- length(unique(queryHits(overlaps_OFF_D_vs_H)))
+  covered_on <- length(unique(queryHits(overlaps_ON)))
+  covered_off <- length(unique(queryHits(overlaps_OFF)))
+  not_known <- total_detect - length(unique(c(queryHits(overlaps_ON), queryHits(overlaps_OFF))))
   
-  # Hotspots coperti da ON o OFF
-  is_covered <- unique(c(queryHits(overlaps_ON_D_vs_H), queryHits(overlaps_OFF_D_vs_H)))
-  not_known_detect <- total_detect - length(is_covered)
-  
-  # Crea la tabella di riepilogo
   summary_detect <- data.frame(
-    Target = c("ON_target_covered", "OFF_target_covered", "Not_known_targets"),
-    Count = c(covered_on_detect, covered_off_detect, not_known_detect)
+    Target = c("ON_targets_covered", "OFF_targets_covered", "Not_known_targets"),
+    Count = c(covered_on, covered_off, not_known)
   )
   
-  # Salva summary e grafico
-  summary_path_detect <- file.path(output_dir, paste0(file_prefix, "_DetectvsHTGTS_Summary.tsv"))
-  write_tsv(summary_detect, summary_path_detect)
-  save_pie_chart(summary_detect, 
-                 sprintf("Detect-seq Hotspots Coverage in HTGTS Targets (%s)", analysis_type), 
-                 file.path(output_dir, paste0(file_prefix, "_DetectvsHTGTS_Chart.pdf")))
-  
-  cat(sprintf("[INFO] Detect-seq vs HTGTS: ON=%d, OFF=%d, Unknown=%d out of %d\n", 
-              covered_on_detect, covered_off_detect, not_known_detect, total_detect))
+  # Format: enlargement_sample_type_cellline_mode_TargetCoverageSummary(200)_Detect_thresholdmincount(_blackfilt).tsv
+  out_name_detect <- paste0(base_prefix, "_TargetCoverage", rank_tag, "_Detect_", 
+                            threshold, mincount, filt_tag, ".tsv")
+  write_tsv(summary_detect, file.path(outputDetect_dir, out_name_detect))
+
+  cat(sprintf("[INFO] Analysis finished. 1 table generated in: %s\n", outputDetect_dir))
 
   # ----------------------------------------------------
-  # B) Analisi FOCUS: HTGTS vs Detect-seq (HTGTS come Query)
-  # Quanti target HTGTS (ON/OFF) sono coperti dagli hotspot Detect-seq?
+  # B) HTGTS vs Detect-seq (Sensitivity: 2 Outputs)
   # ----------------------------------------------------
+  overlaps_ON_rev <- findOverlaps(gr_ONtarget, gr_detect)
+  overlaps_OFF_rev <- findOverlaps(gr_OFFtarget, gr_detect)
 
-  # Sovrapposizioni: findOverlaps(Query, Subject)
-  # HTGTS targets sono Query, Detect-seq è Subject
-  overlaps_ON_H_vs_D <- findOverlaps(gr_ONtarget, gr_detect)
-  overlaps_OFF_H_vs_D <- findOverlaps(gr_OFFtarget, gr_detect)
+  # Counts for ON targets
+  total_on <- length(gr_ONtarget)
+  covered_on_h <- length(unique(queryHits(overlaps_ON_rev)))
+  not_covered_on <- total_on - covered_on_h
 
-  total_on_target <- length(gr_ONtarget)
-  covered_on_target <- length(unique(queryHits(overlaps_ON_H_vs_D)))
-  total_off_target <- length(gr_OFFtarget)
-  covered_off_target <- length(unique(queryHits(overlaps_OFF_H_vs_D)))
-  
-  not_covered_on <- total_on_target - covered_on_target
-  not_covered_off <- total_off_target - covered_off_target
-  
-  # Summary 1: Dettagliato (ON/OFF coperti e non coperti)
+  # Counts for OFF targets
+  total_off <- length(gr_OFFtarget)
+  covered_off_h <- length(unique(queryHits(overlaps_OFF_rev)))
+  not_covered_off <- total_off - covered_off_h
+
+  # B.1) Detailed Summary
   summary_htgts_detailed <- data.frame(
-    Target = c("ON_target_covered", "ON_target_not_covered", 
-               "OFF_target_covered", "OFF_target_not_covered"),
-    Count = c(covered_on_target, not_covered_on, covered_off_target, not_covered_off)
+    Target = c("ON_targets_covered", "ON_targets_not_covered", 
+               "OFF_targets_covered", "OFF_targets_not_covered"),
+    Count = c(covered_on_h, not_covered_on, covered_off_h, not_covered_off)
   )
   
-  # Summary 2: Globale (Coperti vs Non Coperti)
-  total_htgts <- total_on_target + total_off_target
-  covered_total <- covered_on_target + covered_off_target
-  not_covered_total <- total_htgts - covered_total
-  
+  out_name_htgts_detailed <- paste0(base_prefix, "_TargetCoverage", rank_tag, "Detailed_HTGTS_", 
+                                    threshold, mincount, filt_tag, ".tsv")
+ write_tsv(summary_htgts_detailed, file.path(outputHTGTS_dir, out_name_htgts_detailed))
+
+  # B.2) Global Summary
+  not_covered_tot <- not_covered_on + not_covered_off
   summary_htgts_global <- data.frame(
-    Target = c("Targets_covered", "Targets_not_covered"),
-    Count = c(covered_total, not_covered_total)
+    Target = c("ON_targets_covered", "OFF_targets_covered", "Targets_not_covered"),
+    Count = c(covered_on_h, covered_off_h, not_covered_tot)
   )
   
-  # Salva summaries e grafico globale
-  summary_path_htgts_detailed <- file.path(output_dir, paste0(file_prefix, "_HTGTSvsDetectseq_DetailedSummary.tsv"))
-  write_tsv(summary_htgts_detailed, summary_path_htgts_detailed)
+  out_name_htgts_global <- paste0(base_prefix, "_TargetCoverage", rank_tag, "_HTGTS_", 
+                                 threshold, mincount, filt_tag, ".tsv")
+ write_tsv(summary_htgts_global, file.path(outputHTGTS_dir, out_name_htgts_global))
   
-  summary_path_htgts_global <- file.path(output_dir, paste0(file_prefix, "_HTGTSvsDetectseq_GlobalSummary.tsv"))
-  write_tsv(summary_htgts_global, summary_path_htgts_global)
-
-  save_pie_chart(summary_htgts_global, 
-                 sprintf("HTGTS Targets Coverage by Detect-seq Hotspots (%s)", analysis_type), 
-                 file.path(output_dir, paste0(file_prefix, "_HTGTSvsDetectseq_Chart.pdf")))
-
-  cat(sprintf("[INFO] HTGTS vs Detect-seq: ON covered=%d of %d, OFF covered=%d of %d\n", 
-              covered_on_target, total_on_target, covered_off_target, total_off_target))
-  
-  cat(sprintf("[INFO] Analysis %s finished.\n\n", analysis_type))
+  cat(sprintf("[INFO] Analysis finished. 2 tables generated in: %s\n", outputHTGTS_dir))
 }
-
 
 ########################
 #          Main        #
@@ -156,195 +116,141 @@ analyze_coverage <- function(gr_detect, gr_ONtarget, gr_OFFtarget, output_dir, f
 
 args <- commandArgs(trailingOnly = TRUE)
 
-# --- INIZIO GESTIONE ARGOMENTI E FLAGS ---
-
+# [ERROR] Check for minimum positional arguments
 if (length(args) < 5) {
-     stop("[ERROR] At least 5 positional parameters required: cell_line, threshold_num, min_count, enlargement, sample. Optional flags follow.")
-     }
+  stop("[ERROR] At least 5 parameters required: cell_line, threshold_num, min_count, enlargement, sample.")
+}
 
-# Positional Arguments
+# Assign positional arguments
 cell_line <- args[1]
 threshold_num <- as.integer(args[2])
 min_count <- as.integer(args[3])
 enlargement <- as.integer(args[4])
 sample <- args[5]
 
-# Optional Flags
-extra_flags <- if (length(args) >= 6) {
-     args[6:length(args)]
-} else {
-     character(0) 
-}
+# [INFO] Parse optional flags for Dep/Indep and mode
 
-# --- FUNZIONE parse_flags UTENTE (integrata) ---
 parse_flags <- function(flags) {
-  # [La logica della tua funzione parse_flags è qui...]
-  # (Per mantenere la compatibilità, si assume che la funzione sia definita 
-  #  come da input utente e restituisca una lista)
-
   RUN_DEP <- FALSE; RUN_INDEP <- FALSE; RUN_MUT <- FALSE; RUN_DENS <- FALSE
-  TYPE_SET <- FALSE; MODE_SET <- FALSE; ALL_SEEN <- FALSE
-
-  # Logica di parsing (omessa qui per brevità, ma usa quella fornita dall'utente)
-  # ... (La tua logica di parsing è qui) ...
+  TYPE_SET <- FALSE; MODE_SET <- FALSE
   
   if (length(flags) > 0) {
-    # Re-implementing user logic here for full transparency, adjusting the implementation
-    # to be robust in R.
-    flags <- flags[flags != ""]
-
-    for (f in flags) {
-      if (f == "--ALL") { ALL_SEEN <- TRUE }
-      if (f == "--Dep") { RUN_DEP <- TRUE; RUN_INDEP <- FALSE; TYPE_SET <- TRUE }
-      if (f == "--Indep") { RUN_DEP <- FALSE; RUN_INDEP <- TRUE; TYPE_SET <- TRUE }
-      if (f == "--mut") { RUN_MUT <- TRUE; RUN_DENS <- FALSE; MODE_SET <- TRUE }
-      if (f == "--dens") { RUN_MUT <- FALSE; RUN_DENS <- TRUE; MODE_SET <- TRUE }
+    for (f in flags[flags != ""]) {
+      if (f == "--Dep") { RUN_DEP <- TRUE; TYPE_SET <- TRUE }
+      if (f == "--Indep") { RUN_INDEP <- TRUE; TYPE_SET <- TRUE }
+      if (f == "--mut") { RUN_MUT <- TRUE; MODE_SET <- TRUE }
+      if (f == "--dens") { RUN_DENS <- TRUE; MODE_SET <- TRUE }
     }
-
-    if (!TYPE_SET) { RUN_DEP <- TRUE; RUN_INDEP <- TRUE }
-    if (!MODE_SET) { RUN_MUT <- TRUE; RUN_DENS <- TRUE }
-    
-    if (ALL_SEEN && !TYPE_SET) { RUN_DEP <- TRUE; RUN_INDEP <- TRUE }
-    if (ALL_SEEN && !MODE_SET) { RUN_MUT <- TRUE; RUN_DENS <- TRUE }
-    
-  } else {
-    # Default behavior if no flags: run all
-    RUN_DEP <- TRUE; RUN_INDEP <- TRUE; RUN_MUT <- TRUE; RUN_DENS <- TRUE
   }
-  
+  # Default behavior: run all if not specified
+  if (!TYPE_SET) { RUN_DEP <- TRUE; RUN_INDEP <- TRUE }
+  if (!MODE_SET) { RUN_MUT <- TRUE; RUN_DENS <- TRUE }
   cat("[INFO] Flags parsed:\n")
   cat("       RUN_DEP =", RUN_DEP, "\n")
   cat("       RUN_INDEP =", RUN_INDEP, "\n")
   cat("       RUN_MUT =", RUN_MUT, "\n")
   cat("       RUN_DENS =", RUN_DENS, "\n")
 
-  return(list(
-    RUN_DEP=RUN_DEP,
-    RUN_INDEP=RUN_INDEP,
-    RUN_MUT=RUN_MUT,
-    RUN_DENS=RUN_DENS
-  ))
+  return(list(RUN_DEP=RUN_DEP, RUN_INDEP=RUN_INDEP, RUN_MUT=RUN_MUT, RUN_DENS=RUN_DENS))
 }
-# --- FINE parse_flags UTENTE ---
 
+flags <- parse_flags(if (length(args) >= 6) args[6:length(args)] else character(0))
 
-flags <- parse_flags(extra_flags)
-
-# Build combinations list based on parsed flags
+# Build combinations for the loop
 combinations <- list()
-if (flags$RUN_DEP) combinations <- append(combinations, list(list(type = "Dep", type_path = "Dependent")))
-if (flags$RUN_INDEP) combinations <- append(combinations, list(list(type = "Indep", type_path = "Independent")))
+if (flags$RUN_DEP) combinations <- append(combinations, list(list(type = "Dep", folder = "Dependent_hotspots")))
+if (flags$RUN_INDEP) combinations <- append(combinations, list(list(type = "Indep", folder = "Independent_hotspots")))
+modes <- c(); if (flags$RUN_DENS) modes <- c(modes, "density"); if (flags$RUN_MUT) modes <- c(modes, "nmutations")
 
-modes <- list()
-if (flags$RUN_DENS) modes <- append(modes, "density")
-if (flags$RUN_MUT) modes <- append(modes, "nmutations")
+# [INFO] Load HTGTS Reference Files
+reference_dir <- "scratch/reference_data"
+On_path <- file.path(reference_dir, paste0("ON_target_", cell_line, ".bed"))
+Off_path <- file.path(reference_dir, paste0("OFF_target_", cell_line, ".bed"))
 
-
-if (length(combinations) == 0 || length(modes) == 0) {
-  stop("[ERROR] No analysis combination was selected based on flags. Check inputs.")
+if (!check_file(On_path, "ON-ref") || !check_file(Off_path, "OFF-ref")) {
+  stop("[ERROR] Critical HTGTS reference files missing.")
 }
 
-cat(sprintf("[INFO] Selected combinations: %d\n", length(combinations) * length(modes)))
+gr_ONtarget <- read_tsv(On_path, col_names = FALSE, col_types = cols(), col_select = 1:3) %>% 
+  rename(chrom=1, start=2, end=3) %>% make_GRanges()
+gr_OFFtarget <- read_tsv(Off_path, col_names = FALSE, col_types = cols(), col_select = 1:3) %>% 
+  rename(chrom=1, start=2, end=3) %>% make_GRanges()
 
-# --- Caricamento file di riferimento ON/OFF (statici) ---
-reference_dir <- file.path("scratch/reference_data")
-On_target_path  <- file.path(reference_dir, paste0("ON_target_", cell_line, ".bed"))
-Off_target_path <- file.path(reference_dir, paste0("OFF_target_", cell_line, ".bed"))
+# Track execution summary
+files_processed <- c(); files_skipped <- c()
 
-if (!check_file(On_target_path, "ON-target reference") || 
-    !check_file(Off_target_path, "OFF-target reference")) {
-  stop("[FATAL ERROR] Missing critical ON/OFF reference files.")
-}
-
-On_target  <- read_tsv(On_target_path, col_names = FALSE, col_types = cols(), col_select = 1:3)
-Off_target <- read_tsv(Off_target_path, col_names = FALSE, col_types = cols(), col_select = 1:3)
-colnames(On_target) <- colnames(Off_target) <- c("chrom", "start", "end")
-
-gr_ONtarget  <- make_GRanges(On_target)
-gr_OFFtarget <- make_GRanges(Off_target)
-
-cat(sprintf("[INFO] HTGTS Reference Loaded: ON targets=%d, OFF targets=%d\n", 
-            length(gr_ONtarget), length(gr_OFFtarget)))
-
-
-# --- Lista dei file di input Detect-seq da processare per ogni combinazione ---
-detect_file_suffixes <- c(
-  ".tsv", 
-  "200hotspots.tsv", 
-  "_blackfilt.tsv", 
-  "200hotspots_blackfilt.tsv"
-)
-analysis_labels <- c(
-  "FULL_SET", 
-  "TOP200_POS", 
-  "FULL_FILTERED", 
-  "TOP200_FILTERED"
-)
-
-# --- LOOP PRINCIPALE: Itera su tutte le combinazioni ---
+# [INFO] MAIN LOOP: Iterate over all specified combinations
 for (comb in combinations) {
-  current_type <- comb$type
-  current_type_path <- paste0(comb$type, "endent")
-
-  for (current_mode in modes) {
-    cat("=====================================================\n")
-    cat(sprintf("[INFO] START COMBINATION: TYPE=%s, MODE=%s\n", current_type, current_mode))
+  for (m in modes) {
+    cat(sprintf("\n[INFO] =====================================================\n"))
+    cat(sprintf("[INFO] STARTING COMBINATION: %s | %s\n", comb$type, m))
     
-    # Costruzione del percorso base
-    base_dir <- file.path("Dep_Indep_dataset", 
-                          paste0("Threshold_", threshold_num),
-                          paste0("Enlargement_", enlargement), 
-                          sample, 
-                          paste0("Ranking_", current_type, "_hotspots"), 
-                          current_mode)
+    # Define root path for current combination
+    path <- "/scratch/DepIndep_dataset"
+    path_root <- file.path(path, paste0("Threshold_", threshold_num), 
+                           paste0("Enlargement_", enlargement), comb$folder, sample, 
+                           paste0("Ranking_", comb$type, "_hotspots"), m)
     
-   # 1. Output directory per i set NON FILTRATI (FULL, TOP200)
-    output_dir_base <- file.path(base_dir, "Coverage_plots")
+    # Process both Full_hotspots and Filtered_hotspots
+    set_configs <- list(
+      list(subfolder = "Full_hotspots", filtered = FALSE),
+      list(subfolder = "Filtered_hotspots", filtered = TRUE)
+    )
     
-    # 2. Output directory per i set FILTRATI
-    output_dir_filtered <- file.path(base_dir, "Filtered_hotspots", "Coverage_plots")
-    
-    # Crea le directory di output (vengono create all'interno del loop dei file)
-    
-    
-    # Itera sui 4 tipi di file Detect-seq per questa combinazione
-    for (i in 1:length(detect_file_suffixes)) {
-      suffix <- detect_file_suffixes[i]
-      label <- analysis_labels[i]
+    for (set in set_configs) {
+      # Process both standard and Top 200 files
+      file_variants <- list(
+        list(tag = "Ranked_hotspots", is_200 = FALSE),
+        list(tag = "Ranked200hotspots", is_200 = TRUE)
+      )
       
-      # Decide la directory di output in base al suffisso/etichetta
-      if (grepl("FILTERED|_blackfilt", label)) {
-        # Usa la directory FILTRATA
-        current_output_root <- file.path(output_dir_filtered)
-      } else {
-        # Usa la directory BASE/NON FILTRATA
-        current_output_root <- file.path(output_dir_base)
+      for (variant in file_variants) {
+        suffix <- if (set$filtered) "_blackfilt.tsv" else ".tsv"
+        
+        # Build input file name based on requirements
+        input_name <- paste0(enlargement, "_", sample, "_", comb$type, "_", cell_line, "_", 
+                             variant$tag, "_", m, "_", threshold_num, min_count, suffix)
+        
+        input_path <- file.path(path_root, set$subfolder, input_name)
+        outputDetect_dir <- file.path(path_root, set$subfolder, "Pie_chart", "Detect-seqvsHTGTS")
+        outputHTGTS_dir <- file.path(path_root, set$subfolder, "Pie_chart", "HTGTSvsDetect-seq")
+        
+        if (check_file(input_path, variant$tag)) {
+          input_data <- read_tsv(input_path, col_names = TRUE, show_col_types = FALSE)
+          if (nrow(input_data) > 0) {
+            if (!dir.exists(outputDetect_dir)) dir.create(outputDetect_dir, recursive = TRUE)
+            if (!dir.exists(outputHTGTS_dir)) dir.create(outputHTGTS_dir, recursive = TRUE)
+            
+            # Execute analysis
+            analyze_coverage(gr_detect = make_GRanges(input_data), 
+                             gr_ONtarget = gr_ONtarget, gr_OFFtarget = gr_OFFtarget, 
+                             outputDetect_dir = outputDetect_dir, outputHTGTS_dir = outputHTGTS_dir, 
+                             enlargement = enlargement,
+                             sample = sample, type = comb$type, cell_line = cell_line, 
+                             mode = m, threshold = threshold_num, mincount = min_count, 
+                             is_200 = variant$is_200, is_filtered = set$filtered)
+            
+            files_processed <- c(files_processed, input_name)
+          } else {
+            cat(sprintf("[WARNING] File %s is empty. Skipping.\n", input_name))
+            files_skipped <- c(files_skipped, paste(input_name, "(EMPTY)"))
+          }
+        } else {
+          files_skipped <- c(files_skipped, paste(input_name, "(NOT FOUND)"))
+        }
       }
-      
-      # --- Logica di costruzione del percorso file (OMESSA PER BREVITÀ) ---
-      # ... [input_file_path e gr_input] ...
-      
-      if (!check_file(input_file_path, sprintf("Detect-seq input (%s)", label))) next
-
-      input_data <- read_tsv(input_file_path, col_names = TRUE)
-      gr_input <- make_GRanges(input_data)
-      
-      
-      # 2. Esecuzione analisi unificata
-      output_prefix <- paste0(base_name_clean, "_", label)
-      
-      # Chiamata alla funzione analyze_coverage (dove si creano le sottocartelle)
-      analyze_coverage(gr_detect = gr_input, 
-                       gr_ONtarget = gr_ONtarget, 
-                       gr_OFFtarget = gr_OFFtarget, 
-                       output_root_dir = current_output_root, # Passiamo la directory base corretta
-                       file_prefix = output_prefix, 
-                       analysis_type = paste(current_type, current_mode, label, sep="/"))
-      
     }
-    cat(sprintf("[INFO] END COMBINATION: TYPE=%s, MODE=%s\n", current_type, current_mode))
-    cat("=====================================================\n\n")
   }
 }
 
-cat("[INFO] All processing completed successfully!\n")
+# [INFO] Final Summary Report
+cat("\n=====================================================\n")
+cat("                ANALYSIS SUMMARY REPORT              \n")
+cat("=====================================================\n")
+cat(sprintf("[INFO] Successfully processed: %d\n", length(files_processed)))
+if (length(files_skipped) > 0) {
+  cat("[DETAILS] Skipped files:\n")
+  for (f in files_skipped) cat(paste0("  - ", f, "\n"))
+}
+cat("=====================================================\n")
+cat("[INFO] All processing tasks completed successfully!\n")

@@ -1,5 +1,9 @@
 #!/bin/bash
 
+
+##################
+# SET PARAMETERS #
+##################
 # Docker image name
 IMAGE_NAME="detectseqpipe:4"
 
@@ -7,27 +11,29 @@ IMAGE_NAME="detectseqpipe:4"
 BASE_DIR="/30tb/home/nuvobea/pmat_and_mpmat/CH12F3"
 
 # Cell line to process
-CELL_LINE=("CH12F3")
+CELL_LINE="CH12F3"
 THRESHOLD=3
 MIN_COUNT=5
 ENLARGEMENT=0
-
-# Parameters array
-PARAMS=("$THRESHOLD" "$MIN_COUNT" "$ENLARGEMENT")
 
 # Samples'order
 ORDERED_SAMPLES=("AID_KO_CIT" "UNG_DKO_NS" "UNG_DKO_CIT" "UNG_DKO_CIT_Duv" 
                 "UM_TKO_CIT" "UM_TKO_CIT_Duv" "UM_TKO_CIT_Duv_Plain")
 
-# Save original arguments
-ORIGINAL_ARGS=("$@")
 
-for cell in "${CELL_LINE[@]}"; do
-  echo "Processing cell line: $cell"
 
-  # Restore original arguments at the start of each iteration
-  set -- "${ORIGINAL_ARGS[@]}"
 
+
+
+##################
+# START SCRIPTS  #
+##################
+
+    # Save original arguments
+    ORIGINAL_ARGS=("$@")
+    
+    # Parameters array
+    PARAMS=("$CELL_LINE" "$THRESHOLD" "$MIN_COUNT" "$ENLARGEMENT")
 
     # Host paths
     PMAT_DIR="${BASE_DIR}/pmat_and_mpmat"
@@ -46,21 +52,56 @@ for cell in "${CELL_LINE[@]}"; do
     CONTAINER_DEPINDEP_DIR="/scratch/DepIndep_dataset"
 
 
-    # Prompt for step if not provided
-    if [ -z "$1" ]; then
-        echo "Which step do you want to run?"
-        echo "1) Shared Hotspots Analysis (01_0SharedHotspots.sh)"
-        echo "2) Venn/Euler/Upset Plotting Pipeline (02_SharedHotspots_plots.sh)"
-        echo "3) AID Dependent/Independent Hotspots Splitting (03_AID_DepIndephotspots_split.sh)"
-        echo "4) Filtering Fragile Sites (04_Remove_fragile_regions.R)"
-        echo "5) Ranking AID Dependent/Independent Hotspots (04_0Ranking_AID_DepIndep_hotspots.sh)"
-        echo "6) On/Off Dependent/Independent Hotspots Finding (05_OnOff_DepIndep_finding.R)"
-        echo "7) Unified Top 200 Hotspots Selection (07_top200hotspots_selection.sh)"
-       
-        read -p "Enter the number (0/1/2/3/4/5/6/7): " STEP
-    else
-        STEP="$1"
+    # --- HELP ---
+    show_help() {
+        echo "Usage: $0 <STEP_NUMBER> [ARGS...]"
+        echo ""
+        echo "STEPS AVAILABLE:"
+        echo "  1) Shared Hotspots Analysis (01_0SharedHotspots.sh)"
+        echo "     Args: (None)"
+
+        echo "  2) Venn/Euler/Upset Plotting Pipeline (02_SharedHotspots_plots.sh)"
+        echo "     Args: [FLAGS: -v (venn) -e (euler) -u (upset)]"
+
+        echo "  3) AID Dependent/Independent Hotspots Splitting (03_AID_DepIndephotspots_split.sh)"
+        echo "     Args: <REFERENCE_SAMPLE_NAME> (Mandatory)"
+
+        echo "  4) Filtering Fragile Sites (04_Remove_fragile_regions.R)"
+        echo "     Args: <ANALYSIS_SAMPLE_NAME> [FLAGS: (--Dep / --Indep) (--mut / --dens)]"
+
+        echo "  5) Ranking AID Dependent/Independent Hotspots (05_0Ranking_AID_DepIndep_hotspots.sh)"
+        echo "     Args: <ANALYSIS_SAMPLE_NAME> (Mandatory) [FLAGS: (--Dep / --Indep) (--mut / --dens)]"
+
+        echo "  6) On/Off Dependent/Independent Hotspots Finding (06_OnOff_DepIndep_finding.R)"
+        echo "     Args: <ANALYSIS_SAMPLE_NAME> (Mandatory) [FLAGS: (--Dep / --Indep) (--mut / --dens)]"
+
+        echo "  7) Unified Top 200 Hotspots Selection (07_top200hotspots_selection.sh)"
+        echo "     Args: <ANALYSIS_SAMPLE_NAME> (Mandatory) [FLAGS: (--Dep / --Indep) (--mut / --dens)]"
+
+        echo "  8) Coverage table generation (08_HTGTS-Detectseq_coverage.R )"
+        echo "     Args: <ANALYSIS_SAMPLE_NAME> (Mandatory) [FLAGS: (--Dep / --Indep) (--mut / --dens)]"
+
+        echo "  9) Pie chart generation (09_Coverage_Piechart.R)"
+        echo "     Args: <ANALYSIS_SAMPLE_NAME> (Mandatory) [FLAGS: (--Dep / --Indep) (--mut / --dens)]"
+        echo ""
+        echo "Example for nohup:"
+        echo "  nohup ./00_DepIndep_launch.sh 8 UM_TKO_CIT_Duv --Dep --mut > output.log 2>&1 &"
+    }
+
+    # Check if no arguments are provided or help is requested
+    if [ -z "$1" ] || [ "$1" == "--help" ] || [ "$1" == "-h" ]; then
+        show_help
+        exit 0
     fi
+
+    # Check if no step is provided
+    if [ -z "$1" ]; then
+        echo "[ERROR] No step provided. Use --help to see usage."
+        echo "[INFO] Usage: ./00_DepIndep_launch.sh --help or ./00_DepIndep_launch.sh -h"
+        exit 1
+    fi
+
+    STEP="$1"
 
     # Shift the step argument to process the remaining as parameters
     shift
@@ -84,13 +125,13 @@ for cell in "${CELL_LINE[@]}"; do
                 -v "${SCRIPTS_DIR}":"${CONTAINER_SCRIPTS_DIR}" \
                 -v "${DEPINDEP_DIR}":"${CONTAINER_DEPINDEP_DIR}" \
                 "${IMAGE_NAME}" \
-                bash "${CONTAINER_SCRIPTS_DIR}/01_0SharedHotspots.sh" "$cell" "${PARAMS[@]}" "${ORDERED_SAMPLES[@]}"
+                bash "${CONTAINER_SCRIPTS_DIR}/01_0SharedHotspots.sh" "${PARAMS[@]}" "${ORDERED_SAMPLES[@]}"
         ;;
 
 
         2|"Plots")
             echo "[INFO] Running Venn/Euler/Upset Plotting Pipeline..."
-            # USAGE: $0 2 [FLAGS...] (e.g., -e -u)
+            # USAGE: $0 2 [FLAGS: -v (venn) -e (euler) -u (upset)]
             # Example:
             # nohup ./00_DepIndep_launch.sh 2 > nohup_02SharedHotspots_plots350.out 2>&1 &
 
@@ -102,7 +143,7 @@ for cell in "${CELL_LINE[@]}"; do
                 -v "${SCRIPTS_DIR}":"${CONTAINER_SCRIPTS_DIR}" \
                 -v "${DEPINDEP_DIR}":"${CONTAINER_DEPINDEP_DIR}" \
                 "${IMAGE_NAME}" \
-                bash "${CONTAINER_SCRIPTS_DIR}/02_0SharedHotspots_plots.sh" "$cell" "${PARAMS[@]}" "${STEP_ARGS[@]}"
+                bash "${CONTAINER_SCRIPTS_DIR}/02_0SharedHotspots_plots.sh" "${PARAMS[@]}" "${STEP_ARGS[@]}"
         ;;
 
 
@@ -128,7 +169,7 @@ for cell in "${CELL_LINE[@]}"; do
                 -v "${SCRIPTS_DIR}":"${CONTAINER_SCRIPTS_DIR}" \
                 -v "${DEPINDEP_DIR}":"${CONTAINER_DEPINDEP_DIR}" \
                 "${IMAGE_NAME}" \
-                bash "${CONTAINER_SCRIPTS_DIR}/03_AID_DepIndephotspots_split.sh" "$cell" "${PARAMS[@]}" "$REF_SAMPLE_NAME"
+                bash "${CONTAINER_SCRIPTS_DIR}/03_AID_DepIndephotspots_split.sh" "${PARAMS[@]}" "$REF_SAMPLE_NAME"
         ;;
 
 
@@ -144,10 +185,13 @@ for cell in "${CELL_LINE[@]}"; do
             # nohup ./00_DepIndep_launch.sh 4 UM_TKO_CIT_Duv --Indep > nohup_04Ranking_AID_Indep350.out 2>&1 &
             
             ANALYSIS_SAMPLE_NAME="${STEP_ARGS[0]}"
-            if [ -z "$ANALYSIS_SAMPLE_NAME" ]; then
-                echo "[ERROR] Step 4 requires the reference sample name as the first argument."
-                echo "[INFO] Usage: $0 4 <ANALYSIS_SAMPLE_NAME>"
-                echo "[INFO] Example: $0 4 UM_TKO_CIT_Duv"
+            if [[ -z "$ANALYSIS_SAMPLE_NAME" || "$ANALYSIS_SAMPLE_NAME" == --* ]]; then
+                echo "[ERROR] Step $STEP requires a valid sample name. You provided: '$ANALYSIS_SAMPLE_NAME'"
+                echo "[INFO] It looks like the sample name is missing or you entered a flag instead."
+                echo "[INFO] Usage: $0 $STEP <ANALYSIS_SAMPLE_NAME> [FLAGS: (--Dep / --Indep) (--mut / --dens)]"
+                echo "[INFO] Example: $0 $STEP UM_TKO_CIT_Duv --Dep --mut"
+                echo -e "\n[INFO] Showing help:\n"
+                show_help
                 exit 1
             fi
 
@@ -161,7 +205,7 @@ for cell in "${CELL_LINE[@]}"; do
                 -v "${SCRIPTS_DIR}":"${CONTAINER_SCRIPTS_DIR}" \
                 -v "${DEPINDEP_DIR}":"${CONTAINER_DEPINDEP_DIR}" \
                 "${IMAGE_NAME}" \
-                bash "${CONTAINER_SCRIPTS_DIR}/04_0Ranking_AID_DepIndep_hotspots.sh" "$cell" "${PARAMS[@]}" "$ANALYSIS_SAMPLE_NAME" "${FLAGS[@]}"
+                bash "${CONTAINER_SCRIPTS_DIR}/04_0Ranking_AID_DepIndep_hotspots.sh" "${PARAMS[@]}" "$ANALYSIS_SAMPLE_NAME" "${FLAGS[@]}"
         ;;
 
         5|"Filtering_FragileSites")
@@ -176,10 +220,13 @@ for cell in "${CELL_LINE[@]}"; do
             # nohup ./00_DepIndep_launch.sh 5 UM_TKO_CIT_Duv --Indep > nohup_05Filtering_FragileSites_Inde350.out 2>&1 &
             
             ANALYSIS_SAMPLE_NAME="${STEP_ARGS[0]}"
-            if [ -z "$ANALYSIS_SAMPLE_NAME" ]; then
-                echo "[ERROR] Step 5 requires the reference sample name as the first argument."
-                echo "[INFO] Usage: $0 5 <ANALYSIS_SAMPLE_NAME>"
-                echo "[INFO] Example: $0 5 UM_TKO_CIT_Duv"
+            if [[ -z "$ANALYSIS_SAMPLE_NAME" || "$ANALYSIS_SAMPLE_NAME" == --* ]]; then
+                echo "[ERROR] Step $STEP requires a valid sample name. You provided: '$ANALYSIS_SAMPLE_NAME'"
+                echo "[INFO] It looks like the sample name is missing or you entered a flag instead."
+                echo "[INFO] Usage: $0 $STEP <ANALYSIS_SAMPLE_NAME> [FLAGS: (--Dep / --Indep) (--mut / --dens)]"
+                echo "[INFO] Example: $0 $STEP UM_TKO_CIT_Duv --Dep --mut"
+                echo -e "\n[INFO] Showing help:\n"
+                show_help
                 exit 1
             fi
 
@@ -194,7 +241,7 @@ for cell in "${CELL_LINE[@]}"; do
                 -v "${DEPINDEP_DIR}":"${CONTAINER_DEPINDEP_DIR}" \
                 -v "${REFERENCE_DIR}":"${CONTAINER_REFERENCE_DIR}" \
                 "${IMAGE_NAME}" \
-                Rscript "${CONTAINER_SCRIPTS_DIR}/05_Remove_fragile_sites.R" "$cell" "${PARAMS[@]}" "$ANALYSIS_SAMPLE_NAME" "${FLAGS[@]}"
+                Rscript "${CONTAINER_SCRIPTS_DIR}/05_Remove_fragile_sites.R" "${PARAMS[@]}" "$ANALYSIS_SAMPLE_NAME" "${FLAGS[@]}"
         ;;
 
         6|"OnOff_DepIndep_finding")
@@ -209,10 +256,13 @@ for cell in "${CELL_LINE[@]}"; do
             # nohup ./00_DepIndep_launch.sh 6 UM_TKO_CIT_Duv --Indep > nohup_06OnOff_Finding_Indep350.out 2>&1 &
             
             ANALYSIS_SAMPLE_NAME="${STEP_ARGS[0]}"
-            if [ -z "$ANALYSIS_SAMPLE_NAME" ]; then
-                echo "[ERROR] Step 6 requires the reference sample name as the first argument."
-                echo "[INFO] Usage: $0 6 <ANALYSIS_SAMPLE_NAME>"
-                echo "[INFO] Example: $0 6 UM_TKO_CIT_Duv"
+            if [[ -z "$ANALYSIS_SAMPLE_NAME" || "$ANALYSIS_SAMPLE_NAME" == --* ]]; then
+                echo "[ERROR] Step $STEP requires a valid sample name. You provided: '$ANALYSIS_SAMPLE_NAME'"
+                echo "[INFO] It looks like the sample name is missing or you entered a flag instead."
+                echo "[INFO] Usage: $0 $STEP <ANALYSIS_SAMPLE_NAME> [FLAGS: (--Dep / --Indep) (--mut / --dens)]"
+                echo "[INFO] Example: $0 $STEP UM_TKO_CIT_Duv --Dep --mut"
+                echo -e "\n[INFO] Showing help:\n"
+                show_help
                 exit 1
             fi
 
@@ -227,7 +277,7 @@ for cell in "${CELL_LINE[@]}"; do
                 -v "${REFERENCE_DIR}":"${CONTAINER_REFERENCE_DIR}" \
                 -v "${DEPINDEP_DIR}":"${CONTAINER_DEPINDEP_DIR}" \
                 "${IMAGE_NAME}" \
-                Rscript "${CONTAINER_SCRIPTS_DIR}/06_OnOff_DepIndep_finding.R" "$cell" "${PARAMS[@]}"  "$ANALYSIS_SAMPLE_NAME" "${FLAGS[@]}"
+                Rscript "${CONTAINER_SCRIPTS_DIR}/06_OnOff_DepIndep_finding.R" "${PARAMS[@]}"  "$ANALYSIS_SAMPLE_NAME" "${FLAGS[@]}"
         ;;
 
 
@@ -241,11 +291,14 @@ for cell in "${CELL_LINE[@]}"; do
             # nohup ./00_DepIndep_launch.sh 7 UM_TKO_CIT_Duv > nohup_07top200_selection350.out 2>&1 &
  
             ANALYSIS_SAMPLE_NAME="${STEP_ARGS[0]}"
-            if [ -z "$ANALYSIS_SAMPLE_NAME" ]; then
-             echo "[ERROR] Step 7 requires the analysis sample name as the first argument."
-             echo "[INFO] Usage: $0 7 <ANALYSIS_SAMPLE_NAME>"
-             echo "[INFO] Example: $0 7 UM_TKO_CIT_Duv_CLEAN"
-             exit 1
+            if [[ -z "$ANALYSIS_SAMPLE_NAME" || "$ANALYSIS_SAMPLE_NAME" == --* ]]; then
+                echo "[ERROR] Step $STEP requires a valid sample name. You provided: '$ANALYSIS_SAMPLE_NAME'"
+                echo "[INFO] It looks like the sample name is missing or you entered a flag instead."
+                echo "[INFO] Usage: $0 $STEP <ANALYSIS_SAMPLE_NAME> [FLAGS: (--Dep / --Indep) (--mut / --dens)]"
+                echo "[INFO] Example: $0 $STEP UM_TKO_CIT_Duv --Dep --mut"
+                echo -e "\n[INFO] Showing help:\n"
+                show_help
+                exit 1
             fi
 
             # Flags are the rest of the arguments (can be empty)
@@ -258,12 +311,82 @@ for cell in "${CELL_LINE[@]}"; do
              -v "${SCRIPTS_DIR}":"${CONTAINER_SCRIPTS_DIR}" \
              -v "${DEPINDEP_DIR}":"${CONTAINER_DEPINDEP_DIR}" \
             "${IMAGE_NAME}" \
-            bash "${CONTAINER_SCRIPTS_DIR}/07_top200hotspots_selection.sh" "$cell" "${PARAMS[@]}" "$ANALYSIS_SAMPLE_NAME" "${FLAGS[@]}"
+            bash "${CONTAINER_SCRIPTS_DIR}/07_top200hotspots_selection.sh" "${PARAMS[@]}" "$ANALYSIS_SAMPLE_NAME" "${FLAGS[@]}"
         ;;
+
+
+        8|"Hotspots_coverage")
+            echo "[INFO] Running Hotspots coverage analysis..."
+            # USAGE: $0 8 <ANALYSIS_SAMPLE_NAME> <TYPE> <MODE>
+            # <ANALYSIS_SAMPLE_NAME> mandatory
+            # <TYPE> optional: --ALL (default), --Dep, --Indep
+            # <MODE> optional: --ALL (default), --mut, --dens
+            # Example:
+            # nohup ./00_DepIndep_launch.sh 8 UM_TKO_CIT_Duv --Dep --mut > nohup_08HTGTS-Detectseq_coverage.out 2>&1 &
+ 
+           ANALYSIS_SAMPLE_NAME="${STEP_ARGS[0]}"
+            if [[ -z "$ANALYSIS_SAMPLE_NAME" || "$ANALYSIS_SAMPLE_NAME" == --* ]]; then
+                echo "[ERROR] Step $STEP requires a valid sample name. You provided: '$ANALYSIS_SAMPLE_NAME'"
+                echo "[INFO] It looks like the sample name is missing or you entered a flag instead."
+                echo "[INFO] Usage: $0 $STEP <ANALYSIS_SAMPLE_NAME> [FLAGS: (--Dep / --Indep) (--mut / --dens)]"
+                echo "[INFO] Example: $0 $STEP UM_TKO_CIT_Duv --Dep --mut"
+                echo -e "\n[INFO] Showing help:\n"
+                show_help
+                exit 1
+            fi
+
+            # Flags are the rest of the arguments (can be empty)
+            FLAGS=("${STEP_ARGS[@]:1}")
+
+            # Docker execution
+            docker run --rm -i \
+             --user $(id -u):$(id -g) \
+             -v "${PMAT_DIR}":"${CONTAINER_PMAT_DIR}" \
+             -v "${SCRIPTS_DIR}":"${CONTAINER_SCRIPTS_DIR}" \
+             -v "${DEPINDEP_DIR}":"${CONTAINER_DEPINDEP_DIR}" \
+             -v "${REFERENCE_DIR}":"${CONTAINER_REFERENCE_DIR}" \
+            "${IMAGE_NAME}" \
+            Rscript "${CONTAINER_SCRIPTS_DIR}/08_HTGTS-Detectseq_coverage.R" "${PARAMS[@]}" "$ANALYSIS_SAMPLE_NAME" "${FLAGS[@]}"
+        ;;
+
+
+         9|"Coverage_Piechart")
+            echo "[INFO] Running Pie chart generation..."
+            # USAGE: $0 9 <ANALYSIS_SAMPLE_NAME> <TYPE> <MODE>
+            # <ANALYSIS_SAMPLE_NAME> mandatory
+            # <TYPE> optional: --ALL (default), --Dep, --Indep
+            # <MODE> optional: --ALL (default), --mut, --dens
+            # Example:
+            # nohup ./00_DepIndep_launch.sh 9 UM_TKO_CIT_Duv --Dep --mut > nohup_09Coverage_Piechart.out 2>&1 &
+ 
+            ANALYSIS_SAMPLE_NAME="${STEP_ARGS[0]}"
+            if [[ -z "$ANALYSIS_SAMPLE_NAME" || "$ANALYSIS_SAMPLE_NAME" == --* ]]; then
+                echo "[ERROR] Step $STEP requires a valid sample name. You provided: '$ANALYSIS_SAMPLE_NAME'"
+                echo "[INFO] It looks like the sample name is missing or you entered a flag instead."
+                echo "[INFO] Usage: $0 $STEP <ANALYSIS_SAMPLE_NAME> [FLAGS: (--Dep / --Indep) (--mut / --dens)]"
+                echo "[INFO] Example: $0 $STEP UM_TKO_CIT_Duv --Dep --mut"
+                echo -e "\n[INFO] Showing help:\n"
+                show_help
+                exit 1
+            fi
+
+            # Flags are the rest of the arguments (can be empty)
+            FLAGS=("${STEP_ARGS[@]:1}")
+
+            # Docker execution
+            docker run --rm -i \
+             --user $(id -u):$(id -g) \
+             -v "${PMAT_DIR}":"${CONTAINER_PMAT_DIR}" \
+             -v "${SCRIPTS_DIR}":"${CONTAINER_SCRIPTS_DIR}" \
+             -v "${DEPINDEP_DIR}":"${CONTAINER_DEPINDEP_DIR}" \
+             -v "${REFERENCE_DIR}":"${CONTAINER_REFERENCE_DIR}" \
+            "${IMAGE_NAME}" \
+            Rscript "${CONTAINER_SCRIPTS_DIR}/09_Coverage_Piechart.R" "${PARAMS[@]}" "$ANALYSIS_SAMPLE_NAME" "${FLAGS[@]}"
+        ;;
+
 
         *)
             echo "Invalid option: $STEP"
-            echo "Usage: $0 [0|1|2|3|4|5|6|7] [args...]"
+            echo "Usage: $0 [0|1|2|3|4|5|6|7|8|9] [args...]"
         ;;
     esac
-done

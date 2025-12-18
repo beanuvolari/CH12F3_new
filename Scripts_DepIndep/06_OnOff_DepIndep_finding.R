@@ -111,7 +111,7 @@ process_hotspots <- function(cell_line, threshold_num, min_count, enlargement, s
                                   enlargement, sample, type, cell_line, dens_mut, threshold_num, min_count, input_suffix)
     } else {
         # Original Hotspot Case (found in the ranking folder)
-        input_dir <- base_dir_ranking
+        input_dir <- file.path(base_dir_ranking, "Full_hotspots")
         input_filename <- sprintf("%d_%s_%s_%s_Ranked_hotspots_%s_%d%d.tsv",
                                   enlargement, sample, type, cell_line, dens_mut, threshold_num, min_count)
     }
