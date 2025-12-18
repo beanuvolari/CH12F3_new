@@ -61,7 +61,7 @@ ORDERED_SAMPLES=("AID_KO_CIT" "UNG_DKO_NS" "UNG_DKO_CIT" "UNG_DKO_CIT_Duv"
         echo "     Args: (None)"
 
         echo "  2) Venn/Euler/Upset Plotting Pipeline (02_SharedHotspots_plots.sh)"
-        echo "     Args: [FLAGS: -v (venn) -e (euler) -u (upset)]"
+        echo "     Args: [FLAGS: -v (venn), -e (euler), -u (upset)]"
 
         echo "  3) AID Dependent/Independent Hotspots Splitting (03_AID_DepIndephotspots_split.sh)"
         echo "     Args: <REFERENCE_SAMPLE_NAME> (Mandatory)"
