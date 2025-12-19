@@ -48,19 +48,26 @@ generate_pie_chart <- function(summary_file_path, output_dir, enlargement, sampl
     return(NULL)
   }
 
-  # Determine context from filename and path
+ # Determine context from filename and path
   is_200      <- grepl("200", basename(summary_file_path))
   is_filtered <- grepl("Filtered_hotspots", summary_file_path)
   is_htgts    <- grepl("HTGTS", basename(summary_file_path))
   is_detailed <- grepl("Detailed", basename(summary_file_path))
 
-  # Build Title parts
+  # Build Title prefix
   title_prefix <- if (is_htgts) "HTGTS" else "Detect-seq"
-  title_hots   <- if (is_200) "Top 200 ranked hotspots" else "All hotspots"
-  title_filt   <- if (is_filtered) "(Filtered Hotspots)" else ""
   
-  ggtitle_text <- sprintf("%s Target region coverage\n%s %s - %s\n%s %s", 
-                          title_prefix, sample, type, cell_line, title_hots, title_filt)
+  # [INFO] Title Logic based on folder (Full vs Filtered) and file name (200)
+  if (is_filtered) {
+    # Case: Filtered_hotspots folder
+    title_sub <- if (is_200) "Filtered Hotspots top 200" else "Filtered Hotspots"
+  } else {
+    # Case: Full_hotspots folder
+    title_sub <- if (is_200) "All hotspots top 200" else "All hotspots"
+  }
+  
+  ggtitle_text <- sprintf("%s Target region coverage\n%s %s - %s\n%s", 
+                          title_prefix, sample, type, cell_line, title_sub)
 
   # Prepare Data for plotting
   pie_data$Percentage <- round(pie_data$Count / sum(pie_data$Count) * 100, 1)
