@@ -29,7 +29,7 @@ for cell in "${CELL_LINE[@]}"; do
     # Host paths
     #FASTQ_DIR="${BASE_DIR}/Original_fastq/${cell}/merged_fastq"
     PROJECT_DIR="${BASE_DIR}/pmat_and_mpmat"
-    SCRIPTS_DIR="${BASE_DIR}/Scripts"
+    SCRIPTS_DIR="${BASE_DIR}/Scripts_Detect-seq"
     GENOME_DIR="${BASE_DIR}/Reference_genome"
 
     # Directories needed for step 4 and 5
@@ -48,13 +48,12 @@ for cell in "${CELL_LINE[@]}"; do
     # Prompt for step if not provided
     if [ -z "$1" ]; then
         echo "Which step do you want to run?"
-        echo "0) Fastq to PMAT (00_pmat_generation.sh)"
-        echo "1) Filtering (01_Filtering_pmat.sh)"
-        echo "2) Sum Mut Loci (02_Sum_mut_loci.sh)"
-        echo "3) Merging CTGA (03_Merging_CTGA.sh)"
-        echo "4) Rider processing (04_Rider_processing.sh)"
-        echo "5) IGV Browser bgzip and tabix files generation (05_Index_forIGVbrowser.sh)"
-        read -p "Enter the number (0/1/2/3/4/5): " STEP
+        echo "1) Fastq to PMAT (01_pmat_generation.sh)"
+        echo "2) Filtering (02_Filtering_pmat.sh)"
+        echo "3) Sum Mut Loci (03_Sum_mut_loci.sh)"
+        echo "4) Merging CTGA (04_Merging_CTGA.sh)"
+        echo "5) Rider processing (05_Rider_processing.sh)"
+        read -p "Enter the number (0/1/2/3/4): " STEP
     else
         STEP="$1"
     fi
@@ -65,12 +64,12 @@ for cell in "${CELL_LINE[@]}"; do
     # Based on selected step
     case "$STEP" in
 
-        0|"fastq-to-pmat")
+        1|"fastq-to-pmat")
 
-            # nohup ./00_Pipeline_launch.sh 0 --all > nohup_00_all_pmat.out 2>&1 &
-            # nohup ./00_Pipeline_launch.sh 0 > nohup_00_all_pmat.out 2>&1 &
-            # nohup ./00_Pipeline_launch.sh 0 --single sample_R1.fastq.gz sample2_R1.fastq.gz > nohup_00_single_pmat.out 2>&1 &
-            # nohup ./00_Pipeline_launch.sh 0 --single AID_KO_CIT_merged_R1.fastq.gz > nohup_00_single_AID_KO_CIT_pmat.out 2>&1 &
+            # nohup ./00_Pipeline_launch.sh 1 --all > nohup_01_all_pmat.out 2>&1 &
+            # nohup ./00_Pipeline_launch.sh 1 > nohup_01_all_pmat.out 2>&1 &
+            # nohup ./00_Pipeline_launch.sh 1 --single sample_R1.fastq.gz sample2_R1.fastq.gz > nohup_01_single_pmat.out 2>&1 &
+            # nohup ./00_Pipeline_launch.sh 1 --single AID_KO_CIT_merged_R1.fastq.gz > nohup_01_single_AID_KO_CIT_pmat.out 2>&1 &
 
             # Default behavior: if not specified elaborate all samples in raw_fastq
             MODE="--all"
@@ -103,7 +102,7 @@ for cell in "${CELL_LINE[@]}"; do
                 esac
             done
 
-            echo "Launching 00_pmat_generation.sh script..."
+            echo "Launching 01_pmat_generation.sh script..."
 
             if [ "$MODE" = "--single" ]; then
                 # Single sample mode
@@ -124,18 +123,18 @@ for cell in "${CELL_LINE[@]}"; do
                     -v "${FASTQ_DIR}":"${CONTAINER_FASTQ_DIR}" \
                     -v "${exp_dir}":/scratch \
                     "$IMAGE_NAME2" \
-                    bash "$CONTAINER_SCRIPTS_DIR/00_pmat_generation.sh" "$ADAPT1" "$ADAPT2" "--all"
+                    bash "$CONTAINER_SCRIPTS_DIR/01_pmat_generation.sh" "$ADAPT1" "$ADAPT2" "--all"
             fi
             ;;
 
-        1|"filtering")
-            # nohup ./00_Pipeline_launch.sh 1 3-5 > nohup_01_3-5_pmat.out 2>&1 &
-            # nohup ./00_Pipeline_launch.sh 1 6-10 > nohup_01_6-10_pmat.out 2>&1 &
-            # nohup ./00_Pipeline_launch.sh 1 --part2 6 7 8 > nohup_01_678_part2.out 2>&1 &
-            # nohup ./00_Pipeline_launch.sh 1 --part2 6-10 > nohup_01_6-10_part2.out 2>&1 &
-            # nohup ./00_Pipeline_launch.sh 1 --part1 > nohup_01_part1.out 2>&1 &
+        2|"filtering")
+            # nohup ./00_Pipeline_launch.sh 2 3-5 > nohup_02_3-5_pmat.out 2>&1 &
+            # nohup ./00_Pipeline_launch.sh 2 6-10 > nohup_02_6-10_pmat.out 2>&1 &
+            # nohup ./00_Pipeline_launch.sh 2 --part2 6 7 8 > nohup_02_678_part2.out 2>&1 &
+            # nohup ./00_Pipeline_launch.sh 2 --part2 6-10 > nohup_02_6-10_part2.out 2>&1 &
+            # nohup ./00_Pipeline_launch.sh 2 --part1 > nohup_02_part1.out 2>&1 &
 
-            echo "Launching 01_Filtering_pmat.sh script..."
+            echo "Launching 02_Filtering_pmat.sh script..."
             if [ $# -lt 1 ]; then
                 read -p "Provide mode flag (e.g., --part1/--part2/--all) and thresholds (space-separated or as range, e.g. 3-6): " -a ARGS
             else
@@ -147,15 +146,15 @@ for cell in "${CELL_LINE[@]}"; do
                 -v "${PROJECT_DIR}":"${CONTAINER_PMAT_DIR}" \
                 -v "${SCRIPTS_DIR}":"${CONTAINER_SCRIPTS_DIR}" \
                 "${IMAGE_NAME}" \
-                bash "${CONTAINER_SCRIPTS_DIR}/01_Filtering_pmat.sh" "${ARGS[@]}"
+                bash "${CONTAINER_SCRIPTS_DIR}/02_Filtering_pmat.sh" "${ARGS[@]}"
             ;;
 
-        2|"sum"|"sum-mut-loci")
+        3|"sum"|"sum-mut-loci")
 
-            # nohup ./00_Pipeline_launch.sh 2 6 > nohup_02_Sum_mut_loci_6.out 2>&1 &
-            # nohup ./00_Pipeline_launch.sh 2 3 > nohup_02_Sum_mut_loci_3.out 2>&1 &
+            # nohup ./00_Pipeline_launch.sh 3 6 > nohup_03_Sum_mut_loci_6.out 2>&1 &
+            # nohup ./00_Pipeline_launch.sh 3 3 > nohup_03_Sum_mut_loci_3.out 2>&1 &
 
-            echo "Launching 02_Sum_mut_loci.sh script..."
+            echo "Launching 03_Sum_mut_loci.sh script..."
             if [ $# -lt 1 ]; then
                 read -p "Provide the threshold from which to start the graphs: " start_threshold
             else
@@ -167,15 +166,15 @@ for cell in "${CELL_LINE[@]}"; do
                 -v "$PROJECT_DIR":"$CONTAINER_PMAT_DIR" \
                 -v "$SCRIPTS_DIR":"$CONTAINER_SCRIPTS_DIR" \
                 "$IMAGE_NAME" \
-                bash "$CONTAINER_SCRIPTS_DIR/02_Sum_mut_loci.sh" "$start_threshold"
+                bash "$CONTAINER_SCRIPTS_DIR/03_Sum_mut_loci.sh" "$start_threshold"
             ;;
 
-        3|"merge"|"merging-ctga")
+        4|"merge"|"merging-ctga")
 
-            # nohup ./00_Pipeline_launch.sh 3 > nohup_03_Merging_CTGA.out 2>&1 &
-            # nohup ./00_Pipeline_launch.sh 3 3-5 > nohup_03_Merging_CTGA_3-5.out 2>&1 &
+            # nohup ./00_Pipeline_launch.sh 4 > nohup_04_Merging_CTGA.out 2>&1 &
+            # nohup ./00_Pipeline_launch.sh 4 3-5 > nohup_04_Merging_CTGA_3-5.out 2>&1 &
 
-            echo "Launching 03_Merging_CTGA.sh script..."
+            echo "Launching 04_Merging_CTGA.sh script..."
 
             if [ $# -ge 1 ]; then
                 THRESHOLDS=("$@")
@@ -189,15 +188,15 @@ for cell in "${CELL_LINE[@]}"; do
                 -v "$SCRIPTS_DIR":"$CONTAINER_SCRIPTS_DIR" \
                 -v "$GENOME_DIR":"$CONTAINER_GENOME_DIR" \
                 "$IMAGE_NAME" \
-                bash "$CONTAINER_SCRIPTS_DIR/03_Merging_CTGA.sh" "${THRESHOLDS[@]}"
+                bash "$CONTAINER_SCRIPTS_DIR/04_Merging_CTGA.sh" "${THRESHOLDS[@]}"
             ;;
         
-        4|"rider"|"rider-processing")
+        5|"rider"|"rider-processing")
 
-            # nohup ./00_Pipeline_launch.sh 4 --merge 5 3-5 > nohup_04_Rider_processing_merge5_3-5.out 2>&1 &
-            # nohup ./00_Pipeline_launch.sh 4 --merge 5 6 7 > nohup_04_Rider_processing_merge5_67.out 2>&1 &
+            # nohup ./00_Pipeline_launch.sh 5 --merge 5 3-5 > nohup_05_Rider_processing_merge5_3-5.out 2>&1 &
+            # nohup ./00_Pipeline_launch.sh 5 --merge 5 6 7 > nohup_05_Rider_processing_merge5_67.out 2>&1 &
 
-            echo "Launching 04_Rider_processing.sh script..."
+            echo "Launching 05_Rider_processing.sh script..."
 
             if [ $# -lt 2 ]; then
                 echo "[INFO] You must specify mode (--single or --merge), min_count, and thresholds."
@@ -216,29 +215,13 @@ for cell in "${CELL_LINE[@]}"; do
                 -v "$GENOME_DIR":"$CONTAINER_GENOME_DIR" \
                 -v "$RIDER_DIR":"$CONTAINER_RIDER_DIR" \
                 "$IMAGE_NAME" \
-                bash "$CONTAINER_SCRIPTS_DIR/04_Rider_processing.sh" "${ARGS[@]}"
+                bash "$CONTAINER_SCRIPTS_DIR/05_Rider_processing.sh" "${ARGS[@]}"
             ;;
-
-        # 5|"IGV"|"IGV_browser_indexing")
-
-        #     # nohup ./00_Pipeline_launch.sh 5 > nohup_05_IndexIGVbrowser.out 2>&1 &
-            
-        #     echo "Launching 05_Index_forIGVbrowser.sh script..."
-
-
-        #     docker run --rm -i \
-        #         --user $(id -u):$(id -g) \
-        #         -v "$PROJECT_DIR":"$CONTAINER_PMAT_DIR" \
-        #         -v "$SCRIPTS_DIR":"$CONTAINER_SCRIPTS_DIR" \
-        #         "$IMAGE_NAME" \
-        #         bash "$CONTAINER_SCRIPTS_DIR/05_Index_forIGVbrowser.sh"
-        
-        # ;;
 
 
         *)
             echo "Invalid option: $STEP"
-            echo "Usage: $0 [0|1|2|3|4|5] [args...]"
+            echo "Usage: $0 [0|1|2|3|4] [args...]"
             ;;
     esac
 done
