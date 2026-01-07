@@ -1,7 +1,6 @@
 #!/bin/bash
+# nohup ./05_Rider_processing.sh --merge 5 > nohup_05Rider_processing_merge5.out 2>&1 &
 
-# nohup ./04_Rider_processing.sh --single 5 3 4 5 > nohup_04_Rider_processing_single.out 2>&1 &
-# nohup ./04_Rider_processing.sh --merge 5 3-6 > nohup_04_Rider_processing_merge.out 2>&1 &
 
 ###########################################
 #              FUNCTIONS                  #
@@ -31,17 +30,23 @@ run_rider_and_rename() {
   fi
 }
 
+detect_thresholds() {
+  local search_path="$1"
+  if [ -d "$search_path" ]; then
+    # Finds directories named threshold_*, extracts the number, and sorts them naturally
+    find "$search_path" -maxdepth 1 -type d -name "threshold_*" -exec basename {} \; | sed 's/threshold_//' | sort -V
+  fi
+}
 
 # Mode: --single
 run_single_mode() {
   local min_count="$1"
   shift
-    local thresholds=("$@")
+    local thresholds_input=("$@")
 
   start_timer "Single_mode_analysis"
 
   echo -e "\n[INFO] Running in SINGLE mode with min_count = $min_count"
-  echo -e "[INFO] Thresholds to analyze: ${thresholds[*]}\n"
 
   for sample_dir in "$BASE_DIR"/*; do
     [ -d "$sample_dir" ] || continue
@@ -50,7 +55,15 @@ run_single_mode() {
     echo "[INFO] Processing sample: $sample_name"
 
     for filter in "filtered_CT" "filtered_GA"; do
-      for threshold in "${thresholds[@]}"; do
+      local current_thresholds=("${thresholds_input[@]}")
+      
+      # AUTO-DETECTION: If no thresholds provided, scan the specific filter directory
+      if [ ${#current_thresholds[@]} -eq 0 ]; then
+        echo "[INFO] No thresholds provided, scanning $filter..."
+        current_thresholds=($(detect_thresholds "$sample_dir/$filter"))
+      fi
+
+      for threshold in "${current_thresholds[@]}"; do
         threshold_dir="$sample_dir/$filter/threshold_${threshold}"
         [ -d "$threshold_dir" ] || {
           echo "[WARNING] Directory not found: $threshold_dir"
@@ -77,10 +90,9 @@ run_single_mode() {
 run_merge_mode() {
   local min_count="$1"
   shift
-    local thresholds=("$@")
+  local thresholds_input=("$@")
 
   echo -e "\n[INFO] Running in MERGE mode with min_count = $min_count"
-  echo -e "[INFO] Thresholds to analyze: ${thresholds[*]}\n"
 
   for sample_dir in "$BASE_DIR"/*; do
     [ -d "$sample_dir" ] || continue
@@ -88,18 +100,22 @@ run_merge_mode() {
     start_timer "$sample_name"
     echo -e "[INFO] Processing sample: $sample_name\n"
 
-    merged_dir="$sample_dir/merged_CTGA"
-    [ -d "$merged_dir" ] || {
-      echo "[WARNING] Directory not found: $merged_dir"
-      continue
-    }
+    local merged_dir="$sample_dir/merged_CTGA"
+    local current_thresholds=("${thresholds_input[@]}")
 
-    for threshold in "${thresholds[@]}"; do
+    # AUTO-DETECTION: Scan the merged_CTGA directory
+    if [ ${#current_thresholds[@]} -eq 0 ]; then
+      echo "[INFO] No thresholds provided, scanning $merged_dir..."
+      current_thresholds=($(detect_thresholds "$merged_dir"))
+    fi
+
+    for threshold in "${current_thresholds[@]}"; do
     threshold_dir="${merged_dir}/threshold_${threshold}"
         [ -d "$threshold_dir" ] || {
           echo "[WARNING] Directory not found: $threshold_dir"
           continue
         }
+      
       bed_file="${threshold_dir}/${sample_name}_merged_CTGA_${threshold}_sorted.bed"
       if [ -f "$bed_file" ]; then
         run_rider_and_rename "$bed_file" "$threshold_dir" "$threshold" "$min_count"
@@ -124,9 +140,7 @@ BASE_DIR="/scratch/pmat/Filtered_pmat"
 # Require at least 2 arguments: mode and min_count
 if [ $# -lt 2 ]; then
   echo "[ERROR] Not enough arguments."
-  echo "[INFO] Usage: $0 [--single | --merge] <min_count> [thresholds | threshold_range]"
-  echo "[INFO] Example: $0 --single 5 3-6"
-  echo "[INFO] Example: $0 --merge 10 3 5 7"
+  echo "[INFO] Usage: $0 [--single | --merge] <min_count> | threshold_range | nothing"
   exit 1
 fi
 
@@ -134,12 +148,12 @@ MODE="$1"
 MIN_COUNT="$2"
 shift 2
 
-# Default to range 3-10 if not specified
-#THRESHOLDS="${*:-3-10}"
-# Default to range 3-10 if not specified
-THRESHOLD_STRING="${*:-3-10}"
-THRESHOLDS_ARRAY=($(parse_thresholds "$THRESHOLD_STRING"))
-
+# If arguments remain, parse them; otherwise, pass an empty array to trigger auto-detection
+if [ $# -gt 0 ]; then
+  THRESHOLDS_ARRAY=($(parse_thresholds "$*"))
+else
+  THRESHOLDS_ARRAY=()
+fi
 
 case "$MODE" in
   --single)
@@ -150,9 +164,9 @@ case "$MODE" in
     ;;
   *)
     echo "[ERROR] Invalid mode: $MODE"
-    echo "[INFO] Usage: $0 [--single | --merge] <min_count> [thresholds | threshold_range]"
+    echo "[INFO] Usage: $0 [--single | --merge] <min_count> [thresholds | threshold_range | nothing]"
     exit 1
     ;;
 esac
 
-echo -e "\nProcess completed"
+echo -e "\n[INFO] Process completed"

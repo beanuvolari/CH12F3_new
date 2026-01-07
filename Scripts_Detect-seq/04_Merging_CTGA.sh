@@ -1,11 +1,23 @@
 #!/bin/bash
-# nohup ./03_Merging_CTGA.sh > nohup_03_Merging_CTGA3.out 2>&1 &
+# nohup ./04_Merging_CTGA.sh > nohup_04Merging_CTGA.out 2>&1 &
+
 ###########################################
 #              FUNCTIONS                  #
 ###########################################
 
 # Source general utility functions
-source /scratch/scripts/General_Functions.sh  
+source /scratch/scripts/General_Functions.sh
+
+# --- File Size Utility Functions ---
+TOLERANCE=0
+
+get_file_size() {
+    stat -c "%s" "$1" 2>/dev/null || { echo "[ERROR] Could not get size for file: $1" >&2; return 1; }
+}
+
+get_human_size() {
+    ls -sh "$1" | awk '{print $1}'
+}
 
 indexing_bed() {
   local input_bed="$1"
@@ -37,21 +49,6 @@ indexing_bed() {
   fi
 }
 
-
-# --- File Size Utility Functions ---
-# [INFO] Setting tolerance for byte size check. 0 for exact match.
-TOLERANCE=0
-
-get_file_size() {
-    # stat -c "%s" gets the size in bytes
-    stat -c "%s" "$1" 2>/dev/null || { echo "[ERROR] Could not get size for file: $1" >&2; return 1; }
-}
-
-get_human_size() {
-    # ls -sh reports the size in a human-readable format (e.g., 71M)
-    ls -sh "$1" | awk '{print $1}'
-}
-
 # Function to check if the merged file size equals the sum of its components
 check_merging_integrity() {
     local CT_BED="$1"
@@ -69,23 +66,16 @@ check_merging_integrity() {
     fi
 
     # Get file sizes in bytes
-    SIZE_CT=$(get_file_size "$CT_BED")
-    SIZE_GA=$(get_file_size "$GA_BED")
-    SIZE_MERGED=$(get_file_size "$MERGED_BED")
+    local SIZE_CT=$(get_file_size "$CT_BED")
+    local SIZE_GA=$(get_file_size "$GA_BED")
+    local SIZE_MERGED=$(get_file_size "$MERGED_BED")
+    local EXPECTED_MERGED=$((SIZE_CT + SIZE_GA))
+    local DIFFERENCE=$((SIZE_MERGED - EXPECTED_MERGED))
+    [ "$DIFFERENCE" -lt 0 ] && DIFFERENCE=$((-DIFFERENCE))
     
-    # Calculate expected size
-    EXPECTED_MERGED=$((SIZE_CT + SIZE_GA))
-    
-    # Calculate difference (absolute value)
-    DIFFERENCE=$((SIZE_MERGED - EXPECTED_MERGED))
-    if [ "$DIFFERENCE" -lt 0 ]; then
-        DIFFERENCE=$((-DIFFERENCE))
-    fi
-    
-    # Get human-readable sizes for output
-    HUMAN_CT=$(get_human_size "$CT_BED")
-    HUMAN_GA=$(get_human_size "$GA_BED")
-    HUMAN_MERGED=$(get_human_size "$MERGED_BED")
+    local HUMAN_CT=$(get_human_size "$CT_BED")
+    local HUMAN_GA=$(get_human_size "$GA_BED")
+    local HUMAN_MERGED=$(get_human_size "$MERGED_BED")
     
     # Check if the difference is within the tolerance
     if [ "$DIFFERENCE" -le "$TOLERANCE" ]; then
@@ -93,10 +83,8 @@ check_merging_integrity() {
         echo "[INFO] Size: CT ($HUMAN_CT) + GA ($HUMAN_GA) = Merged ($HUMAN_MERGED)."
         return 0 # Success
     else
-        echo "[ERROR] Integrity check FAILED for $filebase (T=$threshold)."
-        echo "[ERROR] Expected total bytes: $EXPECTED_MERGED | Found bytes: $SIZE_MERGED."
-        echo "[ERROR] Difference: $DIFFERENCE bytes. Concatenation integrity failed."
-        return 1 # Failure
+         echo "[ERROR] Integrity check FAILED for $filebase (T=$threshold). Diff: $DIFFERENCE bytes."
+         return 1 # Failure
     fi
 }
 
@@ -106,54 +94,39 @@ merge_and_sort_BED_files() {
   local filebase="$2"
   local threshold="$3"
   local output_dir="$4"
-  local chrom_sizes="$5"
 
+  local ct_file="${sample_dir}/filtered_CT/threshold_${threshold}/filtered2_CT_${filebase}_${threshold}.bed"
+  local ga_file="${sample_dir}/filtered_GA/threshold_${threshold}/filtered2_GA_${filebase}_${threshold}.bed"
   local merged_file="${output_dir}/${filebase}_merged_CTGA_${threshold}.bed"
   local merged_sorted_file="${output_dir}/${filebase}_merged_CTGA_${threshold}_sorted.bed"
 
   # Remove the merged file if it already exists
-  [ -f "$merged_file" ] && rm "$merged_file"
-  [ -f "$merged_sorted_file" ] && rm "$merged_sorted_file"
+  rm -f "$merged_file" "$merged_sorted_file"
 
   echo -e "\n"
   start_timer "Merge_and_Sort_bed_file"
 
-  # Loop over CT and GA file types
-  for type in CT GA; do
-    local bed_file="${sample_dir}/filtered_${type}/threshold_${threshold}/filtered2_${type}_${filebase}_${threshold}.bed"
-    if [ -f "$bed_file" ]; then
-      echo -e "[INFO] Adding $bed_file to $merged_file"
-      cat "$bed_file" >> "$merged_file"
+   if [[ -f "$ct_file" && -f "$ga_file" ]]; then
+        echo "[INFO] Merging $ct_file and $ga_file"
+        cat "$ct_file" "$ga_file" > "$merged_file"
+        
+        # Integrity check
+        check_merging_integrity "$ct_file" "$ga_file" "$merged_file" "$threshold" "$filebase"
+
+        echo "[INFO] Sorting merged BED file..."
+        if sort -k1,1V -k2,2n -k3,3n "$merged_file" > "$merged_sorted_file"; then
+            echo "[INFO] Sorted successfully: $merged_sorted_file"
+            rm "$merged_file"
+            indexing_bed "$merged_sorted_file"
+        else
+            echo "[ERROR] Sorting failed for $merged_file"
+        fi
     else
-      echo -e "[ERROR] File $bed_file not found!"
+        echo "[ERROR] Source BED files missing for threshold $threshold"
     fi
-  done
 
-  # Perform integrity check on the UNSORTED file before sorting
-    check_merging_integrity "$CT_BED_IN" "$GA_BED_IN" "$merged_file_unsorted" "$threshold" "$filebase"
-
-  # Sort the merged BED file by chromosome and start position
-  if [ -f "$merged_file_unsorted" ]; then
-    echo "[INFO] Sorting merged BED file: $merged_file_unsorted"
-    
-    if sort -k1,1V -k2,2n -k3,3n -k4,4n "$merged_file_unsorted" > "$merged_sorted_file"; then
-      echo "[INFO] Sorted successfully: $merged_sorted_file"
-
-      # Remove the unsorted merged file to save space
-      rm "$merged_file_unsorted"
-
-      # Index the final sorted file. This ensures the original sorted file remains.
-      indexing_bed "$merged_sorted_file"
-
-    else
-      echo "[ERROR] Sorting failed for $merged_file_unsorted"
-    fi
-  else
-    echo "[ERROR] Merged BED file $merged_file_unsorted not found for sorting!"
-  fi
-
-  
-  check_output_generation "$merged_sorted_file"  # Check if output was generated correctly
+  # Check if output was generated correctly
+  check_output_generation "$merged_sorted_file" 
   end_timer "Merge_and_Sort_bed_file"
 
 }
@@ -168,22 +141,16 @@ merge_variableStep_wigs() {
 
   local combined_wig="${output_dir}/${filebase}_merged_CTGA_${threshold}.wig"
   local combined_bw="${output_dir}/${filebase}_merged_CTGA_${threshold}.bw"
-
-  # Remove existing combined wig and bw files if they exist
-  [ -f "$combined_wig" ] && rm "$combined_wig"
-  [ -f "$combined_bw" ] && rm "$combined_bw"
-
-  # Temporary file to collect chrom, position, and value data
-  local temp_data
-  temp_data=$(mktemp)
-  
+  local temp_data=$(mktemp)
+    
+  rm -f "$combined_wig" "$combined_bw"
   start_timer "Merge_wig_file_and_generate_bw"
 
   # Loop over CT and GA wig files
   for type in CT GA; do
     local wig_file="${sample_dir}/filtered_${type}/threshold_${threshold}/filtered2_${type}_${filebase}_${threshold}.wig"
     if [ -f "$wig_file" ]; then
-      echo "[INFO] Processing $wig_file"
+      echo "[INFO] Extracting data from $wig_file"
 
       # Extract data lines (skip variableStep headers), print: chrom pos value
       awk '
@@ -199,54 +166,49 @@ merge_variableStep_wigs() {
   done
 
   # Sort data by chromosomal order and position
-  temp_sorted=$(mktemp)
-  sort -k1,1V -k2,2n "$temp_data" > "$temp_sorted"
+     if [ -s "$temp_data" ]; then
+        echo "[INFO] Sorting and formatting WIG data..."
+        local temp_sorted=$(mktemp)
+        sort -k1,1V -k2,2n "$temp_data" > "$temp_sorted"
 
-  # Write merged wig file, grouping by chromosome and adding variableStep headers
-  local last_chrom=""
-  while read -r chrom pos val; do
-    if [[ "$chrom" != "$last_chrom" ]]; then
-      echo "variableStep chrom=$chrom span=1" >> "$combined_wig"
-      last_chrom="$chrom"
-    fi
-    echo -e "${pos}\t${val}" >> "$combined_wig"
-  done < "$temp_sorted"
+        awk 'BEGIN {last_chrom=""} {
+            if ($1 != last_chrom) {
+                print "variableStep chrom=" $1 " span=1";
+                last_chrom = $1;
+            }
+            print $2 "\t" $3;
+        }' "$temp_sorted" > "$combined_wig"
 
-    #cat "${temp_data}_sorted"
-
-  # Clean up temporary files
-  rm "$temp_data" "$temp_sorted"
-
-  check_output_generation "$combined_wig"  # Check if output was generated correctly
-
-  # Create BigWig file if chromosome sizes file exists
-  if [ -f "$chrom_sizes" ]; then
-    if wigToBigWig "$combined_wig" "$chrom_sizes" "$combined_bw"; then
-      echo "[INFO] BigWig file created: $combined_bw"
+        check_output_generation "$combined_wig"  # Check if output was generated correctly
+   
+        # Create BigWig file if chromosome sizes file exists
+        if [[ -f "$chrom_sizes" && -f "$combined_wig" ]]; then
+            if wigToBigWig "$combined_wig" "$chrom_sizes" "$combined_bw"; then
+                echo "[INFO] BigWig file created: $combined_bw"
+            else
+                echo "[ERROR] wigToBigWig conversion failed for $combined_wig."
+            fi
+        else
+          echo "[ERROR] Chromosome sizes file not found at $chrom_sizes — skipping BigWig conversion"
+        fi
+        rm "$temp_data" "$temp_sorted"
     else
-      echo "[ERROR] wigToBigWig conversion failed for $combined_wig"
+        echo "[ERROR] No data found to merge for WIG files."
     fi
-  else
-    echo "[ERROR] Chromosome sizes file not found at $chrom_sizes — skipping BigWig conversion"
-  fi
 
     end_timer "Merge_wig_file_and_generate_bw"
 }
-
 
 ###########################################
 #                 MAIN                    #
 ###########################################
 
-# Directory containing pmat data
+# Define directories and files
 pmat_dir="scratch/pmat/Filtered_pmat"
+chrom_sizes="/scratch/genome/mm9.chrom.sizes"
 
 # Check if directory exists
 check_directory_exists "$pmat_dir"
-
-# Define chrom_size file
-chrom_sizes="/scratch/genome/mm9.chrom.sizes"
-
 
 # Loop over each sample directory inside pmat_dir
 for sample_dir in "${pmat_dir}"/*; do
@@ -255,11 +217,12 @@ for sample_dir in "${pmat_dir}"/*; do
 
     filebase=$(basename "$sample_dir")
     echo -e "\n--------------------------------------------------------------------------------------\n"
-    echo -e "\n[INFO] Analysis started for sample: $filebase"
+    echo -e "\n[INFO] Starting sample: $filebase"
 
     dir_merged="${sample_dir}/merged_CTGA"
-    check_directory_exists "$dir_merged"  # Create output directory if missing
+    check_directory_exists "$dir_merged"
 
+  # Threshold detection
     if [ "$#" -gt 0 ]; then
       # Arguments provided: parse them as thresholds
       input_thresholds="$*"
@@ -269,13 +232,13 @@ for sample_dir in "${pmat_dir}"/*; do
       # No arguments: detect threshold directories automatically
       # Find all threshold directories inside filtered_CT, sorted numerically
       echo "[INFO] No threshold arguments provided — scanning directories"
-      mapfile -t threshold_dirs < <(find "${sample_dir}/filtered_CT" -type d -name "threshold_*" -exec basename {} \; | sort -V)
+      mapfile -t threshold_dirs < <(find "${sample_dir}/filtered_CT" -maxdepth 1 -type d -name "threshold_*" -exec basename {} \; | sort -V)
       thresholds=()
       for dir in "${threshold_dirs[@]}"; do
         thresholds+=("${dir#threshold_}")
       done
     fi
-
+    echo -e "[INFO] Thresholds to process: ${thresholds[*]}"
 
     # Iterate over thresholds for processing
     for threshold in "${thresholds[@]}"; do
@@ -286,7 +249,7 @@ for sample_dir in "${pmat_dir}"/*; do
       dir_merged_threshold="${dir_merged}/threshold_${threshold}"
       check_directory_exists "$dir_merged_threshold"
 
-      merge_and_sort_BED_files "$sample_dir" "$filebase" "$threshold" "$dir_merged_threshold" "$chrom_sizes"
+      merge_and_sort_BED_files "$sample_dir" "$filebase" "$threshold" "$dir_merged_threshold"
       merge_variableStep_wigs "$sample_dir" "$filebase" "$threshold" "$dir_merged_threshold" "$chrom_sizes"
     done
 
@@ -295,4 +258,4 @@ for sample_dir in "${pmat_dir}"/*; do
   fi
 done
 
-echo "[INFO] All analyses have been completed!"
+echo "[INFO] All tasks finished successfully."

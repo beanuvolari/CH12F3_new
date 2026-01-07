@@ -1,7 +1,7 @@
 #!/bin/bash
  
-# nohup ./02_Sum_mutations_loci.sh 4 > nohup_02_Sum_mut_loc4.out 2>&1 & 
-# nohup ./02_Sum_mutations_loci.sh 3 > nohup_02_Sum_mut_loc3.out 2>&1 & 
+# nohup ./03_0Sum_mut_loci.sh 3 > nohup_03Sum_mut_loc3.out 2>&1 &
+# nohup ./03_0Sum_mut_loci.sh 4 > nohup_03Sum_mut_loc4.out 2>&1 &  
 
 ###########################################
 #              FUNCTIONS                  #
@@ -110,10 +110,10 @@ for sample_dir in "$pmat_dir"/*; do
 
             echo -e "\n[INFO] Generating graphs in: $graph_dir"
             # Generate graph for number of loci
-            Rscript /scratch/scripts/02_Sum_mut_loci_graph.R "$output_locus" "$graph_dir" "$start_threshold" "$filebase"
+            Rscript /scratch/scripts/03_1Sum_mut_loci_graph.R "$output_locus" "$graph_dir" "$start_threshold" "$filebase"
 
             # Generate graph for number of mutations
-            Rscript /scratch/scripts/02_Sum_mut_loci_graph.R "$output_mut" "$graph_dir" "$start_threshold" "$filebase"
+            Rscript /scratch/scripts/03_1Sum_mut_loci_graph.R "$output_mut" "$graph_dir" "$start_threshold" "$filebase"
 
             check_output_generation "$graph_dir/Sum_${type}_locnum_${filebase}_from_${start_threshold}.png"
             check_output_generation "$graph_dir/Sum_${type}_mutnum_${filebase}_from_${start_threshold}.png"
