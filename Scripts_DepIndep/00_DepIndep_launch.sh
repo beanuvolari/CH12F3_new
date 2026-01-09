@@ -83,6 +83,9 @@ ORDERED_SAMPLES=("AID_KO_CIT" "UNG_DKO_NS" "UNG_DKO_CIT" "UNG_DKO_CIT_Duv"
 
         echo "  9) Pie chart generation (09_Coverage_Piechart.R)"
         echo "     Args: <ANALYSIS_SAMPLE_NAME> (Mandatory) [FLAGS: (--Dep / --Indep) (--mut / --dens)]"
+
+        echo "  10) IGV batch and rmd files generation (10_igv_batch_rmd_generation.R)"
+        echo "     Args: <ANALYSIS_SAMPLE_NAME> (Mandatory) [FLAGS: (--Dep / --Indep) (--mut / --dens)]"
         echo ""
         echo "Example for nohup:"
         echo "  nohup ./00_DepIndep_launch.sh 8 UM_TKO_CIT_Duv --Dep --mut > output.log 2>&1 &"
@@ -384,9 +387,43 @@ ORDERED_SAMPLES=("AID_KO_CIT" "UNG_DKO_NS" "UNG_DKO_CIT" "UNG_DKO_CIT_Duv"
             Rscript "${CONTAINER_SCRIPTS_DIR}/09_Coverage_Piechart.R" "${PARAMS[@]}" "$ANALYSIS_SAMPLE_NAME" "${FLAGS[@]}"
         ;;
 
+        10|"IGV_batch_rmd")
+            echo "[INFO] Running IGV batch and rmd files generation..."
+            # USAGE: $0 10 <ANALYSIS_SAMPLE_NAME> <TYPE> <MODE>
+            # <ANALYSIS_SAMPLE_NAME> mandatory
+            # <TYPE> optional: --ALL (default), --Dep, --Indep
+            # <MODE> optional: --ALL (default), --mut, --dens
+            # Example:
+            # nohup ./00_DepIndep_launch.sh 10 UM_TKO_CIT_Duv --Dep --mut > nohup_10IGV_batch_rmd.out 2>&1 &
+ 
+            ANALYSIS_SAMPLE_NAME="${STEP_ARGS[0]}"
+            if [[ -z "$ANALYSIS_SAMPLE_NAME" || "$ANALYSIS_SAMPLE_NAME" == --* ]]; then
+                echo "[ERROR] Step $STEP requires a valid sample name. You provided: '$ANALYSIS_SAMPLE_NAME'"
+                echo "[INFO] It looks like the sample name is missing or you entered a flag instead."
+                echo "[INFO] Usage: $0 $STEP <ANALYSIS_SAMPLE_NAME> [FLAGS: (--Dep / --Indep) (--mut / --dens)]"
+                echo "[INFO] Example: $0 $STEP UM_TKO_CIT_Duv --Dep --mut"
+                echo -e "\n[INFO] Showing help:\n"
+                show_help
+                exit 1
+            fi
+
+            # Flags are the rest of the arguments (can be empty)
+            FLAGS=("${STEP_ARGS[@]:1}")
+
+            # Docker execution
+            docker run --rm -i \
+             --user $(id -u):$(id -g) \
+             -v "${PMAT_DIR}":"${CONTAINER_PMAT_DIR}" \
+             -v "${SCRIPTS_DIR}":"${CONTAINER_SCRIPTS_DIR}" \
+             -v "${DEPINDEP_DIR}":"${CONTAINER_DEPINDEP_DIR}" \
+             -v "${REFERENCE_DIR}":"${CONTAINER_REFERENCE_DIR}" \
+            "${IMAGE_NAME}" \
+            Rscript "${CONTAINER_SCRIPTS_DIR}/10_igv_batch_rmd_generation.R" "${PARAMS[@]}" "$ANALYSIS_SAMPLE_NAME" "${FLAGS[@]}"
+        ;;
+
 
         *)
             echo "Invalid option: $STEP"
-            echo "Usage: $0 [0|1|2|3|4|5|6|7|8|9] [args...]"
+            echo "Usage: $0 [0|1|2|3|4|5|6|7|8|9|10] [args...]"
         ;;
     esac

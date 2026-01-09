@@ -8,6 +8,9 @@ This repository contains a pipeline to define and visualize AID-dependent and in
 
 - Docker must be installed and running.
 - The Docker image detectseqpipe:4 (or the version specified in the script).
+```
+docker pull detectseqpipe:4
+```
 
 ***Configuration***
 
