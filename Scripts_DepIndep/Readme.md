@@ -60,7 +60,7 @@ ORDERED_SAMPLES=("sample_1" "sample_2" "sample_3" ...)
 ## Steps
 
 
-#### **1) Generation of a cross-sample shared hotspots dataset**
+### **1) Generation of a cross-sample shared hotspots dataset**
 
 Option: `1` or `Shared_Hotspots`
 
@@ -101,7 +101,7 @@ The script is designed to be run in a **batch mode**.
 
 ___
 
-#### **2) Plotting (Euler, Upset, Venn)**
+### **2) Plotting (Euler, Upset, Venn)**
 
 Option: `2` or `Plots`
 
@@ -174,7 +174,7 @@ If you run `./00_DepIndep_launch.sh 2` without flags, the script will generate a
 - Venn Plot missing: Check the logs. If your data has >5 sample columns, the Venn diagram is intentionally skipped.
 ___
 
-#### **3) AID-Dependent/ AID-Independent hotspots split**
+### **3) AID-Dependent/ AID-Independent hotspots split**
 
 Option: `3` or `AID_DepIndep_Split` 
 
@@ -231,7 +231,7 @@ nohup ./00_DepIndep_launch.sh AID_KO > nohup_03AID_DepIndephotspots_split350.out
 ___
 
 
-#### **4) Ranking of AID-Dependent/Independent Hotspots**
+### **4) Ranking of AID-Dependent/Independent Hotspots**
 
 Option: `4` or `Ranking_AID_DepIndep`
 
@@ -283,7 +283,7 @@ nohup ./00_DepIndep_launch.sh 4 UM_TKO_CIT_Duv --Dep --dens > nohup_04RankingDep
 
  ___
 
-#### **5) Filtering Fragile Sites (Blacklist Removal)**
+### **5) Filtering Fragile Sites (Blacklist Removal)**
 Option: `5` or `Filtering_FragileSites`
 
 This step runs `05_Remove_fragile_sites.R`. It intersects the ranked hotspots with a known blacklist (e.g., mm9-blacklist.bed) to remove regions associated with genomic fragility or sequencing artifacts.
@@ -358,7 +358,7 @@ Files are saved in `OnOff_target_ranking/` subdirectories created inside the inp
 
 ___
 
-### ***7) Top 200 Hotspots Selection*** 
+### **7) Top 200 Hotspots Selection** 
 Option: `7` or `Top200_Selection`  
 
 This step runs `07_top200hotspots_selection.sh`. It extracts the most significant hotspots (Top 200) based on the ranking performed in Step 4. 
@@ -394,7 +394,7 @@ Additional two files are created and saved in `Filtered_hotspots/Filterd_and_bla
 
 ___
 
-### ***8) Coverage Table Generation (Detect-seq vs HTGTS)***
+### **8) Coverage Table Generation (Detect-seq vs HTGTS)**
 Option: `8` or `Hotspots_coverage`
 
 This step runs `08_HTGTS-Detectseq_coverage.R`. It calculates the statistical overlap and coverage between Detect-seq results and HTGTS references. It generates **summary tables** comparing 
@@ -444,7 +444,7 @@ Summary TSV files for both the Full dataset and Top 200 selection, located in:
 ```
 ___
 
-### ***9) Pie Chart Generation***
+### **9) Pie Chart Generation**
 
 Option: `9` or `Coverage_Piechart`
 
